@@ -29,7 +29,7 @@ export function CreateTaskForm({ periodId, onCreated }: CreateTaskFormProps) {
   const [notes, setNotes] = useState('');
   const [isRecurring, setIsRecurring] = useState(false);
   const [frequency, setFrequency] = useState<RecurrenceFrequency>('every-period');
-  const [timesPerPeriod, setTimesPerPeriod] = useState(1);
+  const [timesPerPeriod, setTimesPerPeriod] = useState('1');
   const [category, setCategory] = useState('');
   const [error, setError] = useState('');
 
@@ -42,7 +42,7 @@ export function CreateTaskForm({ periodId, onCreated }: CreateTaskFormProps) {
       return;
     }
 
-    const count = isRecurring ? timesPerPeriod : 1;
+    const count = isRecurring ? Math.max(1, Math.min(20, parseInt(timesPerPeriod) || 1)) : 1;
     let recurringTemplateId: string | undefined;
 
     if (isRecurring) {
@@ -51,7 +51,7 @@ export function CreateTaskForm({ periodId, onCreated }: CreateTaskFormProps) {
         difficulty,
         notes: notes.trim(),
         frequency,
-        timesPerPeriod,
+        timesPerPeriod: Math.max(1, Math.min(20, parseInt(timesPerPeriod) || 1)),
         category: category || undefined,
       });
       recurringTemplateId = template.id;
@@ -142,11 +142,11 @@ export function CreateTaskForm({ periodId, onCreated }: CreateTaskFormProps) {
               max={20}
               step={1}
               value={timesPerPeriod}
-              onChange={(e) => setTimesPerPeriod(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
+              onChange={(e) => setTimesPerPeriod(e.target.value)}
             />
-            {timesPerPeriod > 1 && (
+            {parseInt(timesPerPeriod) > 1 && (
               <p className="text-xs text-text-muted">
-                Creates {timesPerPeriod} separate tasks
+                Creates {parseInt(timesPerPeriod)} separate tasks
               </p>
             )}
           </div>
