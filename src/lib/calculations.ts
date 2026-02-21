@@ -36,7 +36,7 @@ function normalCDF(x: number, mean: number, stddev: number): number {
 }
 
 /**
- * Returns the maximum percentage of the locked amount that a single task
+ * Returns the maximum percentage of the remaining budget that a single task
  * of the given difficulty can be worth.
  *
  * Uses a smooth S-curve (approximated normal CDF) shifted right so easy
@@ -58,14 +58,18 @@ export function getMaxTaskPercent(difficulty: number): number {
  * Computes the dollar value for every active task.
  *
  * Each task gets a proportional share of the remaining budget weighted by
- * difficulty, but clamped to a per-task cap based on an S-curve of difficulty.
+ * difficulty, but clamped to a per-task cap based on an S-curve of difficulty
+ * applied to the remaining budget. This means as tasks are completed and the
+ * budget shrinks, subsequent tasks are worth less — preventing a cluster of
+ * similar recurring tasks from unlocking most of the money.
+ *
  * Any budget that exceeds all caps simply remains unallocated (becomes savings
  * if unclaimed by period end).
  */
 export function calculateTaskValues(
   activeTasks: Array<{ id: string; difficulty: number }>,
   remainingBudget: number,
-  lockedAmount: number
+  _lockedAmount: number
 ): Map<string, number> {
   const result = new Map<string, number>();
   if (activeTasks.length === 0 || remainingBudget <= 0) return result;
@@ -74,7 +78,7 @@ export function calculateTaskValues(
     id: t.id,
     difficulty: t.difficulty,
     weight: calculateDifficultyWeight(t.difficulty),
-    cap: Math.round(getMaxTaskPercent(t.difficulty) * lockedAmount * 100) / 100,
+    cap: Math.round(getMaxTaskPercent(t.difficulty) * remainingBudget * 100) / 100,
   }));
   const totalWeight = weights.reduce((sum, w) => sum + w.weight, 0);
 
