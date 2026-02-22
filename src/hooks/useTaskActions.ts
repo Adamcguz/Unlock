@@ -1,8 +1,9 @@
 import { useCallback, useState } from 'react';
 import { useTaskStore } from '../store/useTaskStore';
 import { usePayPeriodStore } from '../store/usePayPeriodStore';
+import { useRecurringTaskStore } from '../store/useRecurringTaskStore';
 import { useHistoryStore } from '../store/useHistoryStore';
-import { calculateTaskValues } from '../lib/calculations';
+import { calculateTaskValues, getExpectedCompletions } from '../lib/calculations';
 import type { Task } from '../types';
 
 export function useTaskActions() {
@@ -20,7 +21,15 @@ export function useTaskActions() {
       (t) => t.payPeriodId === currentPeriod.id && t.status === 'active'
     );
     const remainingBudget = currentPeriod.lockedAmount - currentPeriod.unlockedAmount;
-    const valueMap = calculateTaskValues(activeTasks, remainingBudget, currentPeriod.lockedAmount);
+    const periodDays = Math.max(1, Math.round(
+      (new Date(currentPeriod.endDate).getTime() - new Date(currentPeriod.startDate).getTime()) / (1000 * 60 * 60 * 24)
+    ));
+    const templates = useRecurringTaskStore.getState().templates;
+    const expected = new Map<string, number>();
+    for (const t of templates) {
+      expected.set(t.id, getExpectedCompletions(t.frequency, t.timesPerPeriod, periodDays));
+    }
+    const valueMap = calculateTaskValues(activeTasks, remainingBudget, currentPeriod.lockedAmount, expected);
     const computedValue = valueMap.get(taskId) ?? 0;
 
     taskStore.completeTask(taskId, computedValue);

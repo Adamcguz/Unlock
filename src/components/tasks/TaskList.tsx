@@ -4,7 +4,8 @@ import { TaskCard } from './TaskCard';
 import { EmptyState } from '../ui/EmptyState';
 import { useTaskStore } from '../../store/useTaskStore';
 import { usePayPeriodStore } from '../../store/usePayPeriodStore';
-import { calculateTaskValues } from '../../lib/calculations';
+import { useRecurringTaskStore } from '../../store/useRecurringTaskStore';
+import { calculateTaskValues, getExpectedCompletions } from '../../lib/calculations';
 import type { TaskStatus } from '../../types';
 
 interface TaskListProps {
@@ -25,14 +26,23 @@ export function TaskList({ periodId, filter, onCompleteTask, onEditTask, onDelet
     return filter === 'all' ? periodTasks : periodTasks.filter((t) => t.status === filter);
   }, [allTasks, periodId, filter]);
 
+  const templates = useRecurringTaskStore((s) => s.templates);
+
   const valueMap = useMemo(() => {
     if (!period) return new Map<string, number>();
     const activeTasks = allTasks.filter(
       (t) => t.payPeriodId === periodId && t.status === 'active'
     );
     const remainingBudget = period.lockedAmount - period.unlockedAmount;
-    return calculateTaskValues(activeTasks, remainingBudget, period.lockedAmount);
-  }, [allTasks, periodId, period]);
+    const periodDays = Math.max(1, Math.round(
+      (new Date(period.endDate).getTime() - new Date(period.startDate).getTime()) / (1000 * 60 * 60 * 24)
+    ));
+    const expected = new Map<string, number>();
+    for (const t of templates) {
+      expected.set(t.id, getExpectedCompletions(t.frequency, t.timesPerPeriod, periodDays));
+    }
+    return calculateTaskValues(activeTasks, remainingBudget, period.lockedAmount, expected);
+  }, [allTasks, periodId, period, templates]);
 
   const grouped = useMemo(() => {
     const groups = new Map<string, typeof tasks>();

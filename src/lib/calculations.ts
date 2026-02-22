@@ -1,4 +1,4 @@
-import type { ExpenseBreakdown, PaySchedule } from '../types';
+import type { ExpenseBreakdown, PaySchedule, RecurrenceFrequency } from '../types';
 import { PAY_SCHEDULE_OPTIONS } from './constants';
 
 export function calculateTotalExpenses(expenses: ExpenseBreakdown): number {
@@ -55,16 +55,37 @@ export function getMaxTaskPercent(difficulty: number): number {
 }
 
 /**
+ * Returns the total expected completions for a recurring task over a pay period.
+ * For 'every-period' tasks, this equals timesPerPeriod.
+ * For daily/weekly/monthly, it multiplies by the number of such intervals in the period.
+ */
+export function getExpectedCompletions(
+  frequency: RecurrenceFrequency,
+  timesPerPeriod: number,
+  periodDays: number
+): number {
+  switch (frequency) {
+    case 'daily':
+      return timesPerPeriod * periodDays;
+    case 'weekly':
+      return timesPerPeriod * Math.max(1, Math.round(periodDays / 7));
+    case 'monthly':
+      return timesPerPeriod * Math.max(1, Math.round(periodDays / 30));
+    case 'every-period':
+    default:
+      return timesPerPeriod;
+  }
+}
+
+/**
  * Computes the dollar value for every active task using group-based allocation.
  *
  * Tasks sharing a recurringTemplateId are grouped together. Each group gets
  * ONE weight and ONE cap regardless of how many instances exist. The group's
- * allocation is then divided evenly among its active instances.
- *
- * This prevents recurring tasks with many instances (e.g. "brush teeth" 2x/day)
- * from collectively claiming most of the budget. A d=1 task repeated 28 times
- * gets the same total allocation as a single d=1 task — the per-instance value
- * is just smaller.
+ * allocation is divided by the total expected completions over the period
+ * (not just the currently active instances). This means a "daily 2x" task
+ * on a 14-day period divides its cap by 28 — each completion is worth a
+ * small amount.
  *
  * Any budget that exceeds all caps remains unallocated (becomes savings if
  * unclaimed by period end).
@@ -72,7 +93,8 @@ export function getMaxTaskPercent(difficulty: number): number {
 export function calculateTaskValues(
   activeTasks: Array<{ id: string; difficulty: number; recurringTemplateId?: string }>,
   remainingBudget: number,
-  lockedAmount: number
+  lockedAmount: number,
+  expectedCompletions?: Map<string, number>
 ): Map<string, number> {
   const result = new Map<string, number>();
   if (activeTasks.length === 0 || remainingBudget <= 0) return result;
@@ -100,10 +122,12 @@ export function calculateTaskValues(
   const totalWeight = groupData.reduce((sum, g) => sum + g.weight, 0);
 
   // Allocate proportional share per group, capped, then divide among instances
-  for (const { tasks, weight, cap } of groupData) {
+  for (const { key, tasks, weight, cap } of groupData) {
     const proportional = Math.round((weight / totalWeight) * remainingBudget * 100) / 100;
     const groupValue = Math.min(proportional, cap);
-    const perTask = Math.round((groupValue / tasks.length) * 100) / 100;
+    // Use expected total completions if provided, otherwise fall back to active count
+    const divisor = expectedCompletions?.get(key) ?? tasks.length;
+    const perTask = Math.round((groupValue / divisor) * 100) / 100;
     for (const task of tasks) {
       result.set(task.id, perTask);
     }

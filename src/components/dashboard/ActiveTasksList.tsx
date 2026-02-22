@@ -8,8 +8,9 @@ import { EmptyState } from '../ui/EmptyState';
 import { CurrencyDisplay } from '../ui/CurrencyDisplay';
 import { useTaskStore } from '../../store/useTaskStore';
 import { usePayPeriodStore } from '../../store/usePayPeriodStore';
+import { useRecurringTaskStore } from '../../store/useRecurringTaskStore';
 import { getDifficultyColor, getDifficultyLabel } from '../../lib/constants';
-import { calculateTaskValues } from '../../lib/calculations';
+import { calculateTaskValues, getExpectedCompletions } from '../../lib/calculations';
 
 interface ActiveTasksListProps {
   periodId: string;
@@ -27,11 +28,20 @@ export function ActiveTasksList({ periodId, onCompleteTask }: ActiveTasksListPro
     [allTasks, periodId]
   );
 
+  const templates = useRecurringTaskStore((s) => s.templates);
+
   const valueMap = useMemo(() => {
     if (!period) return new Map<string, number>();
     const remainingBudget = period.lockedAmount - period.unlockedAmount;
-    return calculateTaskValues(tasks, remainingBudget, period.lockedAmount);
-  }, [tasks, period]);
+    const periodDays = Math.max(1, Math.round(
+      (new Date(period.endDate).getTime() - new Date(period.startDate).getTime()) / (1000 * 60 * 60 * 24)
+    ));
+    const expected = new Map<string, number>();
+    for (const t of templates) {
+      expected.set(t.id, getExpectedCompletions(t.frequency, t.timesPerPeriod, periodDays));
+    }
+    return calculateTaskValues(tasks, remainingBudget, period.lockedAmount, expected);
+  }, [tasks, period, templates]);
 
   if (tasks.length === 0) {
     return (
