@@ -36,55 +36,77 @@ function normalCDF(x: number, mean: number, stddev: number): number {
 }
 
 /**
- * Returns the maximum percentage of the remaining budget that a single task
+ * Returns the maximum percentage of the locked budget that a task group
  * of the given difficulty can be worth.
  *
  * Uses a smooth S-curve (approximated normal CDF) shifted right so easy
  * tasks are worth little and harder tasks unlock more:
- *   d=1  → ~1.5%     d=6  → ~9%
- *   d=2  → ~2%       d=7  → ~12%
- *   d=3  → ~3.5%     d=8  → ~15%
- *   d=4  → ~5%       d=9  → ~17%
- *   d=5  → ~7%       d=10 → ~20%
+ *   d=1  → ~2.7%     d=6  → ~17%
+ *   d=2  → ~4.5%     d=7  → ~23%
+ *   d=3  → ~7%       d=8  → ~28%
+ *   d=4  → ~10%      d=9  → ~33%
+ *   d=5  → ~13%      d=10 → ~38%
  */
 export function getMaxTaskPercent(difficulty: number): number {
   const MIN_CAP = 0.015;
-  const MAX_CAP = 0.20;
+  const MAX_CAP = 0.40;
   const cdf = normalCDF(difficulty, 5, 2.5);
   return MIN_CAP + (MAX_CAP - MIN_CAP) * cdf;
 }
 
 /**
- * Computes the dollar value for every active task.
+ * Computes the dollar value for every active task using group-based allocation.
  *
- * Each task gets a proportional share of the remaining budget weighted by
- * difficulty, but clamped to a per-task cap based on an S-curve of difficulty
- * applied to the remaining budget. This means as tasks are completed and the
- * budget shrinks, subsequent tasks are worth less — preventing a cluster of
- * similar recurring tasks from unlocking most of the money.
+ * Tasks sharing a recurringTemplateId are grouped together. Each group gets
+ * ONE weight and ONE cap regardless of how many instances exist. The group's
+ * allocation is then divided evenly among its active instances.
  *
- * Any budget that exceeds all caps simply remains unallocated (becomes savings
- * if unclaimed by period end).
+ * This prevents recurring tasks with many instances (e.g. "brush teeth" 2x/day)
+ * from collectively claiming most of the budget. A d=1 task repeated 28 times
+ * gets the same total allocation as a single d=1 task — the per-instance value
+ * is just smaller.
+ *
+ * Any budget that exceeds all caps remains unallocated (becomes savings if
+ * unclaimed by period end).
  */
 export function calculateTaskValues(
-  activeTasks: Array<{ id: string; difficulty: number }>,
+  activeTasks: Array<{ id: string; difficulty: number; recurringTemplateId?: string }>,
   remainingBudget: number,
-  _lockedAmount: number
+  lockedAmount: number
 ): Map<string, number> {
   const result = new Map<string, number>();
   if (activeTasks.length === 0 || remainingBudget <= 0) return result;
 
-  const weights = activeTasks.map((t) => ({
-    id: t.id,
-    difficulty: t.difficulty,
-    weight: calculateDifficultyWeight(t.difficulty),
-    cap: Math.round(getMaxTaskPercent(t.difficulty) * remainingBudget * 100) / 100,
-  }));
-  const totalWeight = weights.reduce((sum, w) => sum + w.weight, 0);
+  // Group tasks by recurringTemplateId (non-recurring tasks form solo groups)
+  const groups = new Map<string, Array<{ id: string; difficulty: number }>>();
+  for (const task of activeTasks) {
+    const groupKey = task.recurringTemplateId ?? task.id;
+    const group = groups.get(groupKey);
+    if (group) {
+      group.push(task);
+    } else {
+      groups.set(groupKey, [task]);
+    }
+  }
 
-  for (const { id, weight, cap } of weights) {
+  // Compute one weight and one cap per group
+  const groupData = Array.from(groups.entries()).map(([key, tasks]) => ({
+    key,
+    tasks,
+    difficulty: tasks[0].difficulty,
+    weight: calculateDifficultyWeight(tasks[0].difficulty),
+    cap: Math.round(getMaxTaskPercent(tasks[0].difficulty) * lockedAmount * 100) / 100,
+  }));
+  const totalWeight = groupData.reduce((sum, g) => sum + g.weight, 0);
+
+  // Allocate proportional share per group, capped, then divide among instances
+  for (const { tasks, weight, cap } of groupData) {
     const proportional = Math.round((weight / totalWeight) * remainingBudget * 100) / 100;
-    result.set(id, Math.min(proportional, cap));
+    const groupValue = Math.min(proportional, cap);
+    const perTask = Math.round((groupValue / tasks.length) * 100) / 100;
+    for (const task of tasks) {
+      result.set(task.id, perTask);
+    }
   }
 
   return result;

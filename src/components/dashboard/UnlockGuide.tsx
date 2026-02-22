@@ -40,7 +40,7 @@ export function UnlockGuide({ period }: UnlockGuideProps) {
         })}
       </div>
       <p className="text-[11px] text-text-muted text-center leading-relaxed">
-        Harder tasks are worth more. The more tasks you add, the more each one's value is split up. As you finish tasks, what's left gets shared among the rest.
+        Harder tasks are worth more. Recurring tasks share one allocation across all instances, so repeating a task doesn't inflate your total. As you finish tasks, what's left gets shared among the rest.
       </p>
     </Card>
   );
