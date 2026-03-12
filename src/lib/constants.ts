@@ -7,14 +7,17 @@ export const PAY_SCHEDULE_OPTIONS: Record<PaySchedule, { label: string; periodsP
   'monthly': { label: 'Monthly', periodsPerMonth: 1 },
 };
 
-export const EXPENSE_CATEGORIES = [
-  { key: 'rent' as const, label: 'Rent / Mortgage' },
-  { key: 'groceries' as const, label: 'Groceries' },
-  { key: 'utilities' as const, label: 'Utilities' },
-  { key: 'subscriptions' as const, label: 'Subscriptions' },
-  { key: 'transportation' as const, label: 'Transportation' },
-  { key: 'savings' as const, label: 'Savings' },
-  { key: 'other' as const, label: 'Other' },
+export const COMMON_BILL_PRESETS = [
+  'Rent / Mortgage',
+  'Car Payment',
+  'Insurance',
+  'Electric',
+  'Water',
+  'Internet',
+  'Phone',
+  'Streaming',
+  'Gym',
+  'Student Loan',
 ];
 
 export const DEFAULT_LOCK_PERCENTAGE = 50;
@@ -36,7 +39,13 @@ export const STORAGE_KEYS = {
   PAY_PERIODS: 'unlock_pay_periods',
   HISTORY: 'unlock_history',
   RECURRING_TASKS: 'unlock_recurring_tasks',
+  PROJECTS: 'unlock_projects',
+  GOALS: 'unlock_goals',
 } as const;
+
+export const GOAL_UNIT_PRESETS = [
+  'lbs', 'kg', '$', 'pages', 'miles', 'km', 'minutes', 'hours', 'reps', 'days',
+];
 
 export const MOTIVATING_MESSAGES = [
   "You earned it!",

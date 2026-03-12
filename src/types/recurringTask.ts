@@ -10,5 +10,6 @@ export interface RecurringTaskTemplate {
   isActive: boolean;
   createdAt: string;
   lastGeneratedPeriodId: string | null;
+  lastGeneratedDate: string | null;
   category?: string;
 }

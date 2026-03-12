@@ -68,6 +68,10 @@ export function LockAmountStep({
           </span>{' '}
           each period.
         </div>
+
+        <p className="text-xs text-text-muted text-center">
+          Actual locked amount varies per period based on which bills fall within it.
+        </p>
       </div>
       <div className="flex gap-3 pt-6">
         <Button variant="ghost" onClick={onBack} icon={<ArrowLeft size={16} />}>

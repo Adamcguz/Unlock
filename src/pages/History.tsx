@@ -1,5 +1,5 @@
-import { HistoryPage } from '../components/history/HistoryPage';
+import { GoalsPage } from '../components/goals/GoalsPage';
 
 export default function History() {
-  return <HistoryPage />;
+  return <GoalsPage />;
 }

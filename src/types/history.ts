@@ -7,6 +7,8 @@ export interface HistoryEntry {
   completedAt: string;
   payPeriodId: string;
   type: 'unlocked' | 'saved';
+  category?: string;
+  recurringTemplateId?: string;
 }
 
 export interface PeriodSummary {

@@ -25,6 +25,7 @@ interface RecurringTaskState {
   resumeTemplate: (templateId: string) => void;
   deleteTemplate: (templateId: string) => void;
   markGenerated: (templateId: string, periodId: string) => void;
+  markGeneratedDate: (templateId: string, date: string) => void;
 
   reset: () => void;
 }
@@ -40,6 +41,7 @@ export const useRecurringTaskStore = create<RecurringTaskState>()(
           isActive: true,
           createdAt: new Date().toISOString(),
           lastGeneratedPeriodId: null,
+          lastGeneratedDate: null,
           ...data,
         };
         set((state) => ({ templates: [...state.templates, template] }));
@@ -84,11 +86,19 @@ export const useRecurringTaskStore = create<RecurringTaskState>()(
         }));
       },
 
+      markGeneratedDate: (templateId, date) => {
+        set((state) => ({
+          templates: state.templates.map((t) =>
+            t.id === templateId ? { ...t, lastGeneratedDate: date } : t
+          ),
+        }));
+      },
+
       reset: () => set({ templates: [] }),
     }),
     {
       name: STORAGE_KEYS.RECURRING_TASKS,
-      version: 3,
+      version: 4,
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>;
         if (version < 2) {
@@ -97,6 +107,12 @@ export const useRecurringTaskStore = create<RecurringTaskState>()(
           );
         }
         // v3: category field is optional, no migration needed
+        if (version < 4) {
+          // v4: add lastGeneratedDate for sub-period recurring task regeneration
+          state.templates = (state.templates as Array<Record<string, unknown>>).map(
+            (t) => ({ ...t, lastGeneratedDate: t.lastGeneratedDate ?? null })
+          );
+        }
         return state as unknown as RecurringTaskState;
       },
     }

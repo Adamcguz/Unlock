@@ -1,13 +1,13 @@
 import { Button } from '../ui/Button';
 import { CurrencyDisplay } from '../ui/CurrencyDisplay';
 import { ArrowRight, ArrowLeft } from 'lucide-react';
-import { calculateTotalExpenses } from '../../lib/calculations';
+import { calculateTotalBills } from '../../lib/calculations';
 import { formatCurrency } from '../../lib/dateUtils';
-import type { ExpenseBreakdown } from '../../types';
+import type { RecurringBill } from '../../types';
 
 interface SpendingMoneySummaryProps {
   income: number;
-  expenses: ExpenseBreakdown;
+  bills: RecurringBill[];
   spendingMoney: number;
   onNext: () => void;
   onBack: () => void;
@@ -15,12 +15,12 @@ interface SpendingMoneySummaryProps {
 
 export function SpendingMoneySummary({
   income,
-  expenses,
+  bills,
   spendingMoney,
   onNext,
   onBack,
 }: SpendingMoneySummaryProps) {
-  const totalExpenses = calculateTotalExpenses(expenses);
+  const totalBills = calculateTotalBills(bills);
 
   return (
     <div className="flex-1 flex flex-col">
@@ -28,7 +28,7 @@ export function SpendingMoneySummary({
         <div className="text-center">
           <h2 className="text-2xl font-bold mb-2">Your Spending Money</h2>
           <p className="text-text-secondary">
-            This is the money available after your expenses.
+            This is the money available after your bills.
           </p>
         </div>
 
@@ -47,8 +47,8 @@ export function SpendingMoneySummary({
             <span>{formatCurrency(income)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-text-secondary">Total Expenses</span>
-            <span className="text-danger">-{formatCurrency(totalExpenses)}</span>
+            <span className="text-text-secondary">Total Bills</span>
+            <span className="text-danger">-{formatCurrency(totalBills)}</span>
           </div>
           <div className="border-t border-surface pt-2 flex justify-between font-medium">
             <span>Spending Money</span>
@@ -58,7 +58,7 @@ export function SpendingMoneySummary({
 
         {spendingMoney <= 0 && (
           <p className="text-sm text-savings text-center">
-            Your expenses exceed your income. You can go back and adjust, or continue with $0 spending money.
+            Your bills exceed your income. You can go back and adjust, or continue with $0 spending money.
           </p>
         )}
       </div>

@@ -1,14 +1,73 @@
-import type { ExpenseBreakdown, PaySchedule, RecurrenceFrequency } from '../types';
+import type { RecurringBill, PaySchedule, RecurrenceFrequency } from '../types';
 import { PAY_SCHEDULE_OPTIONS } from './constants';
+import { getDate, endOfMonth } from 'date-fns';
 
-export function calculateTotalExpenses(expenses: ExpenseBreakdown): number {
-  return Object.values(expenses).reduce((sum, val) => sum + val, 0);
+export function calculateTotalBills(bills: RecurringBill[]): number {
+  return bills.reduce((sum, bill) => sum + bill.amount, 0);
 }
 
-export function calculateSpendingMoney(income: number, expenses: ExpenseBreakdown): number {
-  return Math.max(0, income - calculateTotalExpenses(expenses));
+export function calculateSpendingMoney(income: number, bills: RecurringBill[]): number {
+  return Math.max(0, income - calculateTotalBills(bills));
 }
 
+/**
+ * Sums all bills whose dayOfMonth falls within a pay period's date range.
+ * Handles periods that cross month boundaries and clamps day 29-31 bills
+ * to the last day of shorter months.
+ */
+export function calculateBillsInPeriod(
+  bills: RecurringBill[],
+  periodStart: Date,
+  periodEnd: Date
+): number {
+  let total = 0;
+  let m = periodStart.getMonth();
+  let y = periodStart.getFullYear();
+  const endMonth = periodEnd.getMonth();
+  const endYear = periodEnd.getFullYear();
+
+  while (y < endYear || (y === endYear && m <= endMonth)) {
+    const lastDayOfMonth = getDate(endOfMonth(new Date(y, m)));
+
+    for (const bill of bills) {
+      const effectiveDay = Math.min(bill.dayOfMonth, lastDayOfMonth);
+      const billDate = new Date(y, m, effectiveDay);
+
+      if (billDate >= periodStart && billDate <= periodEnd) {
+        total += bill.amount;
+      }
+    }
+
+    m++;
+    if (m > 11) { m = 0; y++; }
+  }
+
+  return total;
+}
+
+/**
+ * Calculates the locked amount for a specific pay period based on which
+ * bills actually fall within it.
+ */
+export function calculateLockedAmountForPeriod(
+  monthlyIncome: number,
+  bills: RecurringBill[],
+  lockPercentage: number,
+  paySchedule: PaySchedule,
+  periodStart: Date,
+  periodEnd: Date
+): number {
+  const periodsPerMonth = PAY_SCHEDULE_OPTIONS[paySchedule].periodsPerMonth;
+  const periodIncome = monthlyIncome / periodsPerMonth;
+  const periodExpenses = calculateBillsInPeriod(bills, periodStart, periodEnd);
+  const periodSpending = Math.max(0, periodIncome - periodExpenses);
+  return Math.round(periodSpending * (lockPercentage / 100) * 100) / 100;
+}
+
+/**
+ * Average locked amount per period (used in onboarding preview before
+ * concrete period dates exist).
+ */
 export function calculateLockedAmountPerPeriod(
   spendingMoney: number,
   lockPercentage: number,
@@ -26,10 +85,6 @@ export function calculateDifficultyWeight(difficulty: number): number {
   return 2 * Math.pow(1.38, difficulty - 1);
 }
 
-/**
- * Approximate normal CDF using a logistic function.
- * Returns a value between 0 and 1.
- */
 function normalCDF(x: number, mean: number, stddev: number): number {
   const z = (x - mean) / stddev;
   return 1 / (1 + Math.exp(-1.7 * z));
@@ -38,14 +93,6 @@ function normalCDF(x: number, mean: number, stddev: number): number {
 /**
  * Returns the maximum percentage of the locked budget that a task group
  * of the given difficulty can be worth.
- *
- * Uses a smooth S-curve (approximated normal CDF) shifted right so easy
- * tasks are worth little and harder tasks unlock more:
- *   d=1  → ~2.7%     d=6  → ~17%
- *   d=2  → ~4.5%     d=7  → ~23%
- *   d=3  → ~7%       d=8  → ~28%
- *   d=4  → ~10%      d=9  → ~33%
- *   d=5  → ~13%      d=10 → ~38%
  */
 export function getMaxTaskPercent(difficulty: number): number {
   const MIN_CAP = 0.015;
@@ -56,8 +103,6 @@ export function getMaxTaskPercent(difficulty: number): number {
 
 /**
  * Returns the total expected completions for a recurring task over a pay period.
- * For 'every-period' tasks, this equals timesPerPeriod.
- * For daily/weekly/monthly, it multiplies by the number of such intervals in the period.
  */
 export function getExpectedCompletions(
   frequency: RecurrenceFrequency,
@@ -79,16 +124,6 @@ export function getExpectedCompletions(
 
 /**
  * Computes the dollar value for every active task using group-based allocation.
- *
- * Tasks sharing a recurringTemplateId are grouped together. Each group gets
- * ONE weight and ONE cap regardless of how many instances exist. The group's
- * allocation is divided by the total expected completions over the period
- * (not just the currently active instances). This means a "daily 2x" task
- * on a 14-day period divides its cap by 28 — each completion is worth a
- * small amount.
- *
- * Any budget that exceeds all caps remains unallocated (becomes savings if
- * unclaimed by period end).
  */
 export function calculateTaskValues(
   activeTasks: Array<{ id: string; difficulty: number; recurringTemplateId?: string }>,
@@ -99,7 +134,6 @@ export function calculateTaskValues(
   const result = new Map<string, number>();
   if (activeTasks.length === 0 || remainingBudget <= 0) return result;
 
-  // Group tasks by recurringTemplateId (non-recurring tasks form solo groups)
   const groups = new Map<string, Array<{ id: string; difficulty: number }>>();
   for (const task of activeTasks) {
     const groupKey = task.recurringTemplateId ?? task.id;
@@ -111,7 +145,6 @@ export function calculateTaskValues(
     }
   }
 
-  // Compute one weight and one cap per group
   const groupData = Array.from(groups.entries()).map(([key, tasks]) => ({
     key,
     tasks,
@@ -121,11 +154,9 @@ export function calculateTaskValues(
   }));
   const totalWeight = groupData.reduce((sum, g) => sum + g.weight, 0);
 
-  // Allocate proportional share per group, capped, then divide among instances
   for (const { key, tasks, weight, cap } of groupData) {
     const proportional = Math.round((weight / totalWeight) * remainingBudget * 100) / 100;
     const groupValue = Math.min(proportional, cap);
-    // Use expected total completions if provided, otherwise fall back to active count
     const divisor = expectedCompletions?.get(key) ?? tasks.length;
     const perTask = Math.round((groupValue / divisor) * 100) / 100;
     for (const task of tasks) {

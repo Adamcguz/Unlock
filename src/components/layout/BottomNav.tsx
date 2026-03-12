@@ -1,10 +1,11 @@
 import { NavLink } from 'react-router';
-import { LayoutDashboard, ListTodo, Clock, Settings } from 'lucide-react';
+import { LayoutDashboard, ListTodo, FolderKanban, Target, Settings } from 'lucide-react';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/tasks', icon: ListTodo, label: 'Tasks' },
-  { to: '/history', icon: Clock, label: 'History' },
+  { to: '/projects', icon: FolderKanban, label: 'Projects' },
+  { to: '/history', icon: Target, label: 'Progress' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 

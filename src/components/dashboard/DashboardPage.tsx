@@ -5,6 +5,7 @@ import { UnlockGuide } from './UnlockGuide';
 import { QuickStats } from './QuickStats';
 import { StreakDisplay } from './StreakDisplay';
 import { PeriodProgressBar } from './PeriodProgressBar';
+import { WeeklyUpcoming } from './WeeklyUpcoming';
 import { EmptyState } from '../ui/EmptyState';
 import { usePayPeriodStore } from '../../store/usePayPeriodStore';
 import { AlertCircle } from 'lucide-react';
@@ -30,6 +31,7 @@ export function DashboardPage() {
     <PageContainer className="flex flex-col gap-4">
       <PeriodProgressBar period={currentPeriod} />
       <FinancialSummaryCard period={currentPeriod} />
+      <WeeklyUpcoming />
       <DifficultyChart periodId={currentPeriod.id} />
       <UnlockGuide period={currentPeriod} />
       <StreakDisplay />

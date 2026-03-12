@@ -15,4 +15,5 @@ export interface Task {
   completedAt: string | null;
   recurringTemplateId?: string;
   category?: string;
+  projectId?: string;
 }

@@ -8,6 +8,7 @@ import {
   isSameDay,
   format,
   startOfMonth,
+  startOfWeek,
   endOfMonth,
   eachDayOfInterval,
   getDate,
@@ -192,6 +193,21 @@ export function formatDate(dateStr: string): string {
 
 export function formatShortDate(dateStr: string): string {
   return format(new Date(dateStr), 'MMM d');
+}
+
+export function isNewDay(lastDate: string): boolean {
+  return isBefore(startOfDay(new Date(lastDate)), startOfDay(new Date()));
+}
+
+export function isNewWeek(lastDate: string): boolean {
+  return isBefore(
+    startOfWeek(new Date(lastDate), { weekStartsOn: 1 }),
+    startOfWeek(new Date(), { weekStartsOn: 1 })
+  );
+}
+
+export function isNewMonth(lastDate: string): boolean {
+  return isBefore(startOfMonth(new Date(lastDate)), startOfMonth(new Date()));
 }
 
 export { format, isSameDay, addDays, startOfDay, differenceInCalendarDays };

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { WelcomeStep } from './WelcomeStep';
 import { IncomeStep } from './IncomeStep';
-import { ExpensesStep } from './ExpensesStep';
+import { BillsCalendarStep } from './BillsCalendarStep';
 import { SpendingMoneySummary } from './SpendingMoneySummary';
 import { PayScheduleStep } from './PayScheduleStep';
 import { CategoryStep } from './CategoryStep';
@@ -10,9 +10,9 @@ import { LockAmountStep } from './LockAmountStep';
 import { useUserStore } from '../../store/useUserStore';
 import { usePayPeriodStore } from '../../store/usePayPeriodStore';
 import { getCurrentPeriodDates } from '../../lib/dateUtils';
-import { calculateSpendingMoney, calculateLockedAmountPerPeriod } from '../../lib/calculations';
+import { calculateSpendingMoney, calculateLockedAmountForPeriod } from '../../lib/calculations';
 import { DEFAULT_LOCK_PERCENTAGE, DEFAULT_TASK_CATEGORIES } from '../../lib/constants';
-import type { ExpenseBreakdown, PaySchedule } from '../../types';
+import type { RecurringBill, PaySchedule } from '../../types';
 
 const TOTAL_STEPS = 7;
 
@@ -23,15 +23,7 @@ export function OnboardingWizard() {
 
   const [step, setStep] = useState(0);
   const [income, setIncome] = useState(0);
-  const [expenses, setExpenses] = useState<ExpenseBreakdown>({
-    rent: 0,
-    groceries: 0,
-    utilities: 0,
-    subscriptions: 0,
-    transportation: 0,
-    savings: 0,
-    other: 0,
-  });
+  const [bills, setBills] = useState<RecurringBill[]>([]);
   const [paySchedule, setPaySchedule] = useState<PaySchedule>('monthly');
   const [nextPayDate, setNextPayDate] = useState('');
   const [lockPercentage, setLockPercentage] = useState(DEFAULT_LOCK_PERCENTAGE);
@@ -43,7 +35,7 @@ export function OnboardingWizard() {
   const handleComplete = () => {
     const profile = createProfile({
       monthlyIncome: income,
-      expenses,
+      bills,
       paySchedule,
       nextPayDate,
       lockPercentage,
@@ -51,16 +43,18 @@ export function OnboardingWizard() {
     });
 
     if (profile) {
-      const spendingMoney = calculateSpendingMoney(income, expenses);
-      const lockedAmount = calculateLockedAmountPerPeriod(spendingMoney, lockPercentage, paySchedule);
       const referenceDate = nextPayDate ? new Date(nextPayDate + 'T00:00:00') : new Date();
       const { startDate, endDate } = getCurrentPeriodDates(paySchedule, referenceDate);
+      const lockedAmount = calculateLockedAmountForPeriod(
+        income, bills, lockPercentage, paySchedule,
+        new Date(startDate), new Date(endDate)
+      );
       createPeriod(startDate, endDate, lockedAmount);
       navigate('/', { replace: true });
     }
   };
 
-  const spendingMoney = calculateSpendingMoney(income, expenses);
+  const spendingMoney = calculateSpendingMoney(income, bills);
 
   return (
     <div className="min-h-dvh flex flex-col bg-background">
@@ -82,23 +76,23 @@ export function OnboardingWizard() {
           <IncomeStep income={income} setIncome={setIncome} onNext={next} onBack={back} />
         )}
         {step === 2 && (
-          <ExpensesStep expenses={expenses} setExpenses={setExpenses} onNext={next} onBack={back} />
-        )}
-        {step === 3 && (
-          <SpendingMoneySummary
-            income={income}
-            expenses={expenses}
-            spendingMoney={spendingMoney}
-            onNext={next}
-            onBack={back}
-          />
-        )}
-        {step === 4 && (
           <PayScheduleStep
             paySchedule={paySchedule}
             setPaySchedule={setPaySchedule}
             nextPayDate={nextPayDate}
             setNextPayDate={setNextPayDate}
+            onNext={next}
+            onBack={back}
+          />
+        )}
+        {step === 3 && (
+          <BillsCalendarStep bills={bills} setBills={setBills} onNext={next} onBack={back} />
+        )}
+        {step === 4 && (
+          <SpendingMoneySummary
+            income={income}
+            bills={bills}
+            spendingMoney={spendingMoney}
             onNext={next}
             onBack={back}
           />

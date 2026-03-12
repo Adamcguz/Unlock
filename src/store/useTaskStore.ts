@@ -14,6 +14,7 @@ interface TaskState {
     notes: string;
     recurringTemplateId?: string;
     category?: string;
+    projectId?: string;
   }) => Task;
   completeTask: (taskId: string, computedValue: number) => void;
   expireTasksForPeriod: (payPeriodId: string) => Task[];

@@ -9,6 +9,7 @@ import { checkAndMigrate } from './lib/storage';
 const Onboarding = lazy(() => import('./pages/Onboarding'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Tasks = lazy(() => import('./pages/Tasks'));
+const Projects = lazy(() => import('./pages/Projects'));
 const History = lazy(() => import('./pages/History'));
 const Settings = lazy(() => import('./pages/Settings'));
 
@@ -77,6 +78,7 @@ function AppRoutes() {
       >
         <Route index element={<Dashboard />} />
         <Route path="tasks" element={<Tasks />} />
+        <Route path="projects" element={<Projects />} />
         <Route path="history" element={<History />} />
         <Route path="settings" element={<Settings />} />
       </Route>

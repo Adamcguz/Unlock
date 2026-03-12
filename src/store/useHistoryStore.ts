@@ -73,7 +73,11 @@ export const useHistoryStore = create<HistoryState>()(
     }),
     {
       name: STORAGE_KEYS.HISTORY,
-      version: 1,
+      version: 2,
+      migrate: (persisted: unknown) => {
+        // v2: added optional category and recurringTemplateId to HistoryEntry — no migration needed
+        return persisted as HistoryState;
+      },
     }
   )
 );

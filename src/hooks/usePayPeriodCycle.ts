@@ -4,7 +4,9 @@ import { useTaskStore } from '../store/useTaskStore';
 import { useHistoryStore } from '../store/useHistoryStore';
 import { useUserStore } from '../store/useUserStore';
 import { useRecurringTaskStore } from '../store/useRecurringTaskStore';
-import { isPeriodExpired, getNextPeriodDates, getNextPeriodStartDate } from '../lib/dateUtils';
+import { useProjectStore } from '../store/useProjectStore';
+import { startOfDay, parseISO } from 'date-fns';
+import { isPeriodExpired, getNextPeriodDates, getNextPeriodStartDate, isNewDay, isNewWeek, isNewMonth } from '../lib/dateUtils';
 
 export function usePayPeriodCycle() {
   useEffect(() => {
@@ -53,7 +55,9 @@ export function usePayPeriodCycle() {
         // Create new period — chain from current period end
         const nextStart = getNextPeriodStartDate(profile.paySchedule, currentPeriod.endDate);
         const { startDate, endDate } = getNextPeriodDates(profile.paySchedule, nextStart);
-        const lockedAmount = useUserStore.getState().getLockedAmountPerPeriod();
+        const lockedAmount = useUserStore.getState().getLockedAmountForPeriod(
+          new Date(startDate), new Date(endDate)
+        );
         const newPeriod = usePayPeriodStore.getState().createPeriod(startDate, endDate, lockedAmount);
 
         // Auto-create recurring tasks for the new period
@@ -80,8 +84,85 @@ export function usePayPeriodCycle() {
       }
     }
 
+    function generateSubPeriodTasks() {
+      const currentPeriod = usePayPeriodStore.getState().getCurrentPeriod();
+      if (!currentPeriod || currentPeriod.status !== 'active') return;
+
+      const templates = useRecurringTaskStore.getState().templates.filter(
+        (t) => t.isActive && t.frequency !== 'every-period'
+      );
+
+      const today = new Date().toISOString();
+
+      for (const template of templates) {
+        // Initialize tracking for templates that don't have a lastGeneratedDate yet
+        if (!template.lastGeneratedDate) {
+          useRecurringTaskStore.getState().markGeneratedDate(template.id, today);
+          continue;
+        }
+
+        const shouldGenerate =
+          (template.frequency === 'daily' && isNewDay(template.lastGeneratedDate)) ||
+          (template.frequency === 'weekly' && isNewWeek(template.lastGeneratedDate)) ||
+          (template.frequency === 'monthly' && isNewMonth(template.lastGeneratedDate));
+
+        if (!shouldGenerate) continue;
+
+        const count = template.timesPerPeriod ?? 1;
+        for (let i = 0; i < count; i++) {
+          const task = useTaskStore.getState().createTask({
+            payPeriodId: currentPeriod.id,
+            name: template.name,
+            difficulty: template.difficulty,
+            dueDate: null,
+            notes: template.notes,
+            recurringTemplateId: template.id,
+            category: template.category,
+          });
+          usePayPeriodStore.getState().addTaskToPeriod(currentPeriod.id, task.id);
+        }
+        useRecurringTaskStore.getState().markGeneratedDate(template.id, today);
+      }
+    }
+
+    function spawnProjectTasks() {
+      const currentPeriod = usePayPeriodStore.getState().getCurrentPeriod();
+      if (!currentPeriod || currentPeriod.status !== 'active') return;
+
+      const today = startOfDay(new Date());
+      const projects = useProjectStore.getState().projects.filter(
+        (p) => p.status === 'active'
+      );
+
+      for (const project of projects) {
+        for (const pt of project.tasks) {
+          if (pt.status !== 'pending') continue;
+          const assignedDate = startOfDay(parseISO(pt.assignedDate));
+          if (assignedDate > today) continue;
+
+          const task = useTaskStore.getState().createTask({
+            payPeriodId: currentPeriod.id,
+            name: pt.name,
+            difficulty: pt.difficulty,
+            dueDate: pt.assignedDate,
+            notes: pt.notes,
+            category: project.name,
+            projectId: project.id,
+          });
+          usePayPeriodStore.getState().addTaskToPeriod(currentPeriod.id, task.id);
+          useProjectStore.getState().markTaskSpawned(project.id, pt.id, task.id);
+        }
+      }
+    }
+
     checkAndTransition();
-    const interval = setInterval(checkAndTransition, 60000);
+    generateSubPeriodTasks();
+    spawnProjectTasks();
+    const interval = setInterval(() => {
+      checkAndTransition();
+      generateSubPeriodTasks();
+      spawnProjectTasks();
+    }, 60000);
     return () => clearInterval(interval);
   }, []);
 }

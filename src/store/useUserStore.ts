@@ -1,15 +1,15 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { UserProfile, ExpenseBreakdown, PaySchedule } from '../types';
+import type { UserProfile, RecurringBill, PaySchedule } from '../types';
 import { STORAGE_KEYS, DEFAULT_TASK_CATEGORIES } from '../lib/constants';
 import { generateId } from '../lib/storage';
-import { calculateSpendingMoney, calculateLockedAmountPerPeriod } from '../lib/calculations';
+import { calculateSpendingMoney, calculateLockedAmountPerPeriod, calculateLockedAmountForPeriod } from '../lib/calculations';
 
 interface UserState {
   profile: UserProfile | null;
   createProfile: (data: {
     monthlyIncome: number;
-    expenses: ExpenseBreakdown;
+    bills: RecurringBill[];
     paySchedule: PaySchedule;
     nextPayDate: string;
     lockPercentage: number;
@@ -18,6 +18,7 @@ interface UserState {
   updateProfile: (updates: Partial<UserProfile>) => void;
   getSpendingMoney: () => number;
   getLockedAmountPerPeriod: () => number;
+  getLockedAmountForPeriod: (periodStart: Date, periodEnd: Date) => number;
   reset: () => void;
 }
 
@@ -46,27 +47,70 @@ export const useUserStore = create<UserState>()(
       getSpendingMoney: () => {
         const profile = get().profile;
         if (!profile) return 0;
-        return calculateSpendingMoney(profile.monthlyIncome, profile.expenses);
+        return calculateSpendingMoney(profile.monthlyIncome, profile.bills);
       },
 
       getLockedAmountPerPeriod: () => {
         const profile = get().profile;
         if (!profile) return 0;
-        const spendingMoney = calculateSpendingMoney(profile.monthlyIncome, profile.expenses);
+        const spendingMoney = calculateSpendingMoney(profile.monthlyIncome, profile.bills);
         return calculateLockedAmountPerPeriod(spendingMoney, profile.lockPercentage, profile.paySchedule);
+      },
+
+      getLockedAmountForPeriod: (periodStart, periodEnd) => {
+        const profile = get().profile;
+        if (!profile) return 0;
+        return calculateLockedAmountForPeriod(
+          profile.monthlyIncome,
+          profile.bills,
+          profile.lockPercentage,
+          profile.paySchedule,
+          periodStart,
+          periodEnd
+        );
       },
 
       reset: () => set({ profile: null }),
     }),
     {
       name: STORAGE_KEYS.USER_PROFILE,
-      version: 2,
+      version: 3,
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>;
         if (version < 2 && state.profile) {
           const profile = state.profile as Record<string, unknown>;
           if (!profile.taskCategories) {
             profile.taskCategories = DEFAULT_TASK_CATEGORIES;
+          }
+        }
+        if (version < 3 && state.profile) {
+          const profile = state.profile as Record<string, unknown>;
+          const expenses = profile.expenses as Record<string, number> | undefined;
+          if (expenses) {
+            const categoryLabels: Record<string, string> = {
+              rent: 'Rent / Mortgage',
+              groceries: 'Groceries',
+              utilities: 'Utilities',
+              subscriptions: 'Subscriptions',
+              transportation: 'Transportation',
+              savings: 'Savings',
+              other: 'Other',
+            };
+            const bills: RecurringBill[] = [];
+            let day = 1;
+            for (const [key, amount] of Object.entries(expenses)) {
+              if (amount > 0) {
+                bills.push({
+                  id: generateId(),
+                  name: categoryLabels[key] ?? key,
+                  amount,
+                  dayOfMonth: day,
+                });
+                day = Math.min(28, day + 4);
+              }
+            }
+            profile.bills = bills;
+            delete profile.expenses;
           }
         }
         return state as unknown as UserState;

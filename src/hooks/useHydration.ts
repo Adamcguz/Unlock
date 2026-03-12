@@ -4,6 +4,7 @@ import { useTaskStore } from '../store/useTaskStore';
 import { usePayPeriodStore } from '../store/usePayPeriodStore';
 import { useHistoryStore } from '../store/useHistoryStore';
 import { useRecurringTaskStore } from '../store/useRecurringTaskStore';
+import { useGoalStore } from '../store/useGoalStore';
 
 function allHydrated() {
   return (
@@ -11,7 +12,8 @@ function allHydrated() {
     useTaskStore.persist.hasHydrated() &&
     usePayPeriodStore.persist.hasHydrated() &&
     useHistoryStore.persist.hasHydrated() &&
-    useRecurringTaskStore.persist.hasHydrated()
+    useRecurringTaskStore.persist.hasHydrated() &&
+    useGoalStore.persist.hasHydrated()
   );
 }
 
@@ -31,6 +33,7 @@ export function useHydration() {
       usePayPeriodStore.persist.onFinishHydration(onHydrate),
       useHistoryStore.persist.onFinishHydration(onHydrate),
       useRecurringTaskStore.persist.onFinishHydration(onHydrate),
+      useGoalStore.persist.onFinishHydration(onHydrate),
     ];
 
     // Check again in case it finished between useState init and effect

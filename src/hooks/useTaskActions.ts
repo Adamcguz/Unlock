@@ -3,6 +3,7 @@ import { useTaskStore } from '../store/useTaskStore';
 import { usePayPeriodStore } from '../store/usePayPeriodStore';
 import { useRecurringTaskStore } from '../store/useRecurringTaskStore';
 import { useHistoryStore } from '../store/useHistoryStore';
+import { useProjectStore } from '../store/useProjectStore';
 import { calculateTaskValues, getExpectedCompletions } from '../lib/calculations';
 import type { Task } from '../types';
 
@@ -43,7 +44,27 @@ export function useTaskActions() {
       completedAt: new Date().toISOString(),
       payPeriodId: task.payPeriodId,
       type: 'unlocked',
+      category: task.category,
+      recurringTemplateId: task.recurringTemplateId,
     });
+
+    // Sync project task completion
+    if (task.projectId) {
+      const projectStore = useProjectStore.getState();
+      const project = projectStore.projects.find((p) => p.id === task.projectId);
+      if (project) {
+        const projectTask = project.tasks.find((pt) => pt.taskId === task.id);
+        if (projectTask) {
+          projectStore.markTaskCompleted(project.id, projectTask.id);
+          // Auto-complete project if all tasks are done
+          const updatedProject = useProjectStore.getState().projects.find((p) => p.id === project.id);
+          if (updatedProject && updatedProject.tasks.length > 0 &&
+              updatedProject.tasks.every((t) => t.status === 'completed')) {
+            projectStore.completeProject(project.id);
+          }
+        }
+      }
+    }
 
     setCelebratingTask({ ...task, status: 'completed', completedAt: new Date().toISOString(), dollarValue: computedValue });
     return task;

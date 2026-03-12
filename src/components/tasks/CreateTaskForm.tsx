@@ -21,6 +21,7 @@ export function CreateTaskForm({ periodId, onCreated }: CreateTaskFormProps) {
   const addTaskToPeriod = usePayPeriodStore((s) => s.addTaskToPeriod);
   const createTemplate = useRecurringTaskStore((s) => s.createTemplate);
   const markGenerated = useRecurringTaskStore((s) => s.markGenerated);
+  const markGeneratedDate = useRecurringTaskStore((s) => s.markGeneratedDate);
   const taskCategories = useUserStore((s) => s.profile?.taskCategories ?? []);
 
   const [name, setName] = useState('');
@@ -56,6 +57,7 @@ export function CreateTaskForm({ periodId, onCreated }: CreateTaskFormProps) {
       });
       recurringTemplateId = template.id;
       markGenerated(template.id, periodId);
+      markGeneratedDate(template.id, new Date().toISOString());
     }
 
     for (let i = 0; i < count; i++) {
