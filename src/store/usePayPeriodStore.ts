@@ -10,9 +10,11 @@ interface PayPeriodState {
   createPeriod: (startDate: string, endDate: string, lockedAmount: number) => PayPeriod;
   completePeriod: (periodId: string, expiredAmount: number) => void;
   updatePeriodUnlocked: (periodId: string, amount: number) => void;
+  recordSpending: (periodId: string, amount: number) => void;
   addTaskToPeriod: (periodId: string, taskId: string) => void;
   removeTaskFromPeriod: (periodId: string, taskId: string) => void;
   updatePeriodDates: (periodId: string, startDate: string, endDate: string) => void;
+  updatePeriodLockedAmount: (periodId: string, lockedAmount: number) => void;
   getCurrentPeriod: () => PayPeriod | null;
   reset: () => void;
 }
@@ -32,6 +34,7 @@ export const usePayPeriodStore = create<PayPeriodState>()(
           lockedAmount,
           unlockedAmount: 0,
           expiredAmount: 0,
+          spentAmount: 0,
           taskIds: [],
         };
         set((state) => ({
@@ -58,6 +61,16 @@ export const usePayPeriodStore = create<PayPeriodState>()(
           periods: state.periods.map((p) =>
             p.id === periodId
               ? { ...p, unlockedAmount: p.unlockedAmount + amount }
+              : p
+          ),
+        }));
+      },
+
+      recordSpending: (periodId, amount) => {
+        set((state) => ({
+          periods: state.periods.map((p) =>
+            p.id === periodId
+              ? { ...p, spentAmount: p.spentAmount + amount }
               : p
           ),
         }));
@@ -91,6 +104,14 @@ export const usePayPeriodStore = create<PayPeriodState>()(
         }));
       },
 
+      updatePeriodLockedAmount: (periodId, lockedAmount) => {
+        set((state) => ({
+          periods: state.periods.map((p) =>
+            p.id === periodId ? { ...p, lockedAmount } : p
+          ),
+        }));
+      },
+
       getCurrentPeriod: () => {
         const { periods, currentPeriodId } = get();
         return periods.find((p) => p.id === currentPeriodId) ?? null;
@@ -100,7 +121,17 @@ export const usePayPeriodStore = create<PayPeriodState>()(
     }),
     {
       name: STORAGE_KEYS.PAY_PERIODS,
-      version: 1,
+      version: 2,
+      migrate: (persisted: unknown, version: number) => {
+        const state = persisted as Record<string, unknown>;
+        if (version < 2) {
+          state.periods = (state.periods as Array<Record<string, unknown>>).map((p) => ({
+            ...p,
+            spentAmount: p.spentAmount ?? 0,
+          }));
+        }
+        return state as unknown as PayPeriodState;
+      },
     }
   )
 );

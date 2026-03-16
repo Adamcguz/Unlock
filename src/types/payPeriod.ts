@@ -8,5 +8,6 @@ export interface PayPeriod {
   lockedAmount: number;
   unlockedAmount: number;
   expiredAmount: number;
+  spentAmount: number;
   taskIds: string[];
 }

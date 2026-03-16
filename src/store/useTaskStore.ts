@@ -18,6 +18,7 @@ interface TaskState {
   }) => Task;
   completeTask: (taskId: string, computedValue: number) => void;
   expireTasksForPeriod: (payPeriodId: string) => Task[];
+  expireActiveTasksByTemplate: (templateId: string, payPeriodId: string) => void;
   updateTask: (taskId: string, updates: Partial<Pick<Task, 'name' | 'difficulty' | 'dueDate' | 'notes' | 'category'>>) => void;
   deleteTask: (taskId: string) => void;
   getTasksByPeriod: (payPeriodId: string) => Task[];
@@ -66,6 +67,18 @@ export const useTaskStore = create<TaskState>()(
           }),
         }));
         return expired;
+      },
+
+      expireActiveTasksByTemplate: (templateId, payPeriodId) => {
+        set((state) => ({
+          tasks: state.tasks.map((t) =>
+            t.recurringTemplateId === templateId &&
+            t.payPeriodId === payPeriodId &&
+            t.status === 'active'
+              ? { ...t, status: 'expired' as const }
+              : t
+          ),
+        }));
       },
 
       updateTask: (taskId, updates) => {

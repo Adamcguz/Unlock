@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { UserProfile, RecurringBill, PaySchedule } from '../types';
 import { STORAGE_KEYS, DEFAULT_TASK_CATEGORIES } from '../lib/constants';
 import { generateId } from '../lib/storage';
-import { calculateSpendingMoney, calculateLockedAmountPerPeriod, calculateLockedAmountForPeriod } from '../lib/calculations';
+import { calculateSpendingMoney, calculateLockedAmountPerPeriod, calculateLockedAmountForPeriod, calculateLockedAmountFromBalance } from '../lib/calculations';
 
 interface UserState {
   profile: UserProfile | null;
@@ -19,6 +19,7 @@ interface UserState {
   getSpendingMoney: () => number;
   getLockedAmountPerPeriod: () => number;
   getLockedAmountForPeriod: (periodStart: Date, periodEnd: Date) => number;
+  getLockedAmountFromBalance: (accountBalance: number, upcomingBills: number) => number;
   reset: () => void;
 }
 
@@ -68,6 +69,12 @@ export const useUserStore = create<UserState>()(
           periodStart,
           periodEnd
         );
+      },
+
+      getLockedAmountFromBalance: (accountBalance, upcomingBills) => {
+        const profile = get().profile;
+        if (!profile) return 0;
+        return calculateLockedAmountFromBalance(accountBalance, upcomingBills, profile.lockPercentage);
       },
 
       reset: () => set({ profile: null }),

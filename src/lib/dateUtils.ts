@@ -210,4 +210,78 @@ export function isNewMonth(lastDate: string): boolean {
   return isBefore(startOfMonth(new Date(lastDate)), startOfMonth(new Date()));
 }
 
+/**
+ * Given a current pay date and schedule, returns the next pay date.
+ */
+export function getNextPayDateAfter(
+  currentPayDate: string,
+  paySchedule: PaySchedule
+): string {
+  const current = startOfDay(new Date(currentPayDate));
+  let next: Date;
+
+  switch (paySchedule) {
+    case 'weekly':
+      next = addDays(current, 7);
+      break;
+    case 'bi-weekly':
+      next = addDays(current, 14);
+      break;
+    case 'semi-monthly': {
+      const day = getDate(current);
+      if (day <= 15) {
+        // Next is the 1st of the next month (or 16th of same month)
+        next = new Date(current.getFullYear(), current.getMonth(), 16);
+        if (next <= current) {
+          next = new Date(current.getFullYear(), current.getMonth() + 1, 1);
+        }
+      } else {
+        next = new Date(current.getFullYear(), current.getMonth() + 1, 1);
+      }
+      break;
+    }
+    case 'monthly':
+      next = new Date(current.getFullYear(), current.getMonth() + 1, getDate(current));
+      break;
+  }
+
+  return startOfDay(next).toISOString();
+}
+
+/**
+ * Returns all pay dates that fall within a date range.
+ */
+export function getPayDatesInRange(
+  rangeStart: Date,
+  rangeEnd: Date,
+  nextPayDate: string,
+  paySchedule: PaySchedule
+): Date[] {
+  const dates: Date[] = [];
+  let current = startOfDay(new Date(nextPayDate));
+
+  // Walk backwards if nextPayDate is after rangeStart
+  // to find the first pay date before or at rangeStart
+  while (isAfter(current, rangeEnd)) {
+    // Gone too far forward, step back
+    current = startOfDay(new Date(getNextPayDateAfter(
+      addDays(current, paySchedule === 'weekly' ? -8 : paySchedule === 'bi-weekly' ? -15 : -32).toISOString(),
+      paySchedule
+    )));
+  }
+
+  // Walk forward collecting dates in range
+  const maxIterations = 100;
+  let i = 0;
+  while (!isAfter(current, rangeEnd) && i < maxIterations) {
+    if (!isBefore(current, startOfDay(rangeStart))) {
+      dates.push(current);
+    }
+    current = startOfDay(new Date(getNextPayDateAfter(current.toISOString(), paySchedule)));
+    i++;
+  }
+
+  return dates;
+}
+
 export { format, isSameDay, addDays, startOfDay, differenceInCalendarDays };

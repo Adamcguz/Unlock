@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
 import { AppShell } from './components/layout/AppShell';
 import { useUserStore } from './store/useUserStore';
 import { usePayPeriodCycle } from './hooks/usePayPeriodCycle';
+import { useBalanceSync } from './hooks/useBalanceSync';
 import { useHydration } from './hooks/useHydration';
 import { checkAndMigrate } from './lib/storage';
 
@@ -11,6 +12,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Tasks = lazy(() => import('./pages/Tasks'));
 const Projects = lazy(() => import('./pages/Projects'));
 const History = lazy(() => import('./pages/History'));
+const Planner = lazy(() => import('./pages/Planner'));
 const Settings = lazy(() => import('./pages/Settings'));
 
 checkAndMigrate();
@@ -58,6 +60,7 @@ function AppRoutes() {
   const onboardingCompleted = profile?.onboardingCompleted ?? false;
 
   usePayPeriodCycle();
+  useBalanceSync();
 
   if (!hydrated) {
     return <LoadingScreen />;
@@ -80,6 +83,7 @@ function AppRoutes() {
         <Route path="tasks" element={<Tasks />} />
         <Route path="projects" element={<Projects />} />
         <Route path="history" element={<History />} />
+        <Route path="planner" element={<Planner />} />
         <Route path="settings" element={<Settings />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

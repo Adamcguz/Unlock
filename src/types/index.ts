@@ -5,3 +5,4 @@ export type { HistoryEntry, PeriodSummary, AllTimeStats } from './history';
 export type { RecurringTaskTemplate, RecurrenceFrequency } from './recurringTask';
 export type { Project, ProjectTask, ProjectStatus } from './project';
 export type { Goal, GoalType, GoalStatus, GoalLink, GoalLinkType, GoalCheckIn } from './goal';
+export type { Debt, DebtType } from './debt';

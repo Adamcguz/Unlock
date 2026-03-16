@@ -41,6 +41,7 @@ export const STORAGE_KEYS = {
   RECURRING_TASKS: 'unlock_recurring_tasks',
   PROJECTS: 'unlock_projects',
   GOALS: 'unlock_goals',
+  DEBTS: 'unlock_debts',
 } as const;
 
 export const GOAL_UNIT_PRESETS = [

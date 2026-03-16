@@ -5,8 +5,10 @@ import { useHistoryStore } from '../store/useHistoryStore';
 import { useUserStore } from '../store/useUserStore';
 import { useRecurringTaskStore } from '../store/useRecurringTaskStore';
 import { useProjectStore } from '../store/useProjectStore';
-import { startOfDay, parseISO } from 'date-fns';
+import { useDebtStore } from '../store/useDebtStore';
+import { startOfDay, parseISO, addDays } from 'date-fns';
 import { isPeriodExpired, getNextPeriodDates, getNextPeriodStartDate, isNewDay, isNewWeek, isNewMonth } from '../lib/dateUtils';
+import { calculateBillsInPeriod, calculateLockedAmountFromBalance } from '../lib/calculations';
 
 export function usePayPeriodCycle() {
   useEffect(() => {
@@ -55,9 +57,22 @@ export function usePayPeriodCycle() {
         // Create new period — chain from current period end
         const nextStart = getNextPeriodStartDate(profile.paySchedule, currentPeriod.endDate);
         const { startDate, endDate } = getNextPeriodDates(profile.paySchedule, nextStart);
-        const lockedAmount = useUserStore.getState().getLockedAmountForPeriod(
-          new Date(startDate), new Date(endDate)
-        );
+
+        // Use balance-based lock if account balance is set, otherwise fall back to income-based
+        const accountBalance = useDebtStore.getState().accountBalance;
+        let lockedAmount: number;
+        if (accountBalance > 0) {
+          const upcomingBills = calculateBillsInPeriod(
+            profile.bills,
+            new Date(startDate),
+            new Date(endDate)
+          );
+          lockedAmount = calculateLockedAmountFromBalance(accountBalance, upcomingBills, profile.lockPercentage);
+        } else {
+          lockedAmount = useUserStore.getState().getLockedAmountForPeriod(
+            new Date(startDate), new Date(endDate)
+          );
+        }
         const newPeriod = usePayPeriodStore.getState().createPeriod(startDate, endDate, lockedAmount);
 
         // Auto-create recurring tasks for the new period
@@ -107,6 +122,9 @@ export function usePayPeriodCycle() {
           (template.frequency === 'monthly' && isNewMonth(template.lastGeneratedDate));
 
         if (!shouldGenerate) continue;
+
+        // Expire any uncompleted tasks from the previous occurrence of this template
+        useTaskStore.getState().expireActiveTasksByTemplate(template.id, currentPeriod.id);
 
         const count = template.timesPerPeriod ?? 1;
         for (let i = 0; i < count; i++) {

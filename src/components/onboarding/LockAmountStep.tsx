@@ -70,7 +70,7 @@ export function LockAmountStep({
         </div>
 
         <p className="text-xs text-text-muted text-center">
-          Actual locked amount varies per period based on which bills fall within it.
+          Once you set your account balance in the Planner, the lock amount will be based on your real balance minus upcoming bills.
         </p>
       </div>
       <div className="flex gap-3 pt-6">

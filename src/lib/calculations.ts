@@ -65,6 +65,19 @@ export function calculateLockedAmountForPeriod(
 }
 
 /**
+ * Calculates locked amount based on real account balance minus upcoming bills.
+ * Used when the user has set their account balance in the Planner.
+ */
+export function calculateLockedAmountFromBalance(
+  accountBalance: number,
+  upcomingBills: number,
+  lockPercentage: number
+): number {
+  const available = Math.max(0, accountBalance - upcomingBills);
+  return Math.round(available * (lockPercentage / 100) * 100) / 100;
+}
+
+/**
  * Average locked amount per period (used in onboarding preview before
  * concrete period dates exist).
  */

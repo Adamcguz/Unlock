@@ -10,9 +10,11 @@ import { usePayPeriodStore } from '../../store/usePayPeriodStore';
 import { useTaskStore } from '../../store/useTaskStore';
 import { useHistoryStore } from '../../store/useHistoryStore';
 import { useRecurringTaskStore } from '../../store/useRecurringTaskStore';
+import { useDebtStore } from '../../store/useDebtStore';
 import { PAY_SCHEDULE_OPTIONS, COMMON_BILL_PRESETS } from '../../lib/constants';
-import { calculateSpendingMoney, calculateLockedAmountPerPeriod, calculateLockedAmountForPeriod } from '../../lib/calculations';
+import { calculateSpendingMoney, calculateLockedAmountPerPeriod, calculateLockedAmountForPeriod, calculateLockedAmountFromBalance, calculateBillsInPeriod } from '../../lib/calculations';
 import { getCurrentPeriodDates, formatCurrency } from '../../lib/dateUtils';
+import { addDays } from 'date-fns';
 import { generateId } from '../../lib/storage';
 import type { RecurringBill, PaySchedule } from '../../types';
 import { Save, Plus, Pencil, Trash2 } from 'lucide-react';
@@ -34,8 +36,20 @@ export function FinancialSettings() {
   const [billAmount, setBillAmount] = useState('');
   const [billDay, setBillDay] = useState(1);
 
+  const accountBalance = useDebtStore((s) => s.accountBalance);
   const spendingMoney = calculateSpendingMoney(income, bills);
-  const lockedPerPeriod = calculateLockedAmountPerPeriod(spendingMoney, lockPercentage, paySchedule);
+  const incomeBasedLock = calculateLockedAmountPerPeriod(spendingMoney, lockPercentage, paySchedule);
+
+  // Show balance-based lock preview when account balance is set
+  const currentPeriod = usePayPeriodStore.getState().getCurrentPeriod();
+  const periodEnd = currentPeriod ? new Date(currentPeriod.endDate) : addDays(new Date(), 7);
+  const upcomingBillsPreview = accountBalance > 0
+    ? calculateBillsInPeriod(bills, new Date(), periodEnd)
+    : 0;
+  const balanceBasedLock = accountBalance > 0
+    ? calculateLockedAmountFromBalance(accountBalance, upcomingBillsPreview, lockPercentage)
+    : 0;
+  const lockedPerPeriod = accountBalance > 0 ? balanceBasedLock : incomeBasedLock;
 
   const openAddModal = () => {
     setEditingBill(null);
@@ -123,10 +137,19 @@ export function FinancialSettings() {
 
       const referenceDate = new Date(nextPayDate + 'T00:00:00');
       const { startDate, endDate } = getCurrentPeriodDates(paySchedule, referenceDate);
-      const newLockedAmount = calculateLockedAmountForPeriod(
-        income, bills, lockPercentage, paySchedule,
-        new Date(startDate), new Date(endDate)
-      );
+      const currentAccountBalance = useDebtStore.getState().accountBalance;
+      let newLockedAmount: number;
+      if (currentAccountBalance > 0) {
+        const upcomingBillsForPeriod = calculateBillsInPeriod(
+          bills, new Date(startDate), new Date(endDate)
+        );
+        newLockedAmount = calculateLockedAmountFromBalance(currentAccountBalance, upcomingBillsForPeriod, lockPercentage);
+      } else {
+        newLockedAmount = calculateLockedAmountForPeriod(
+          income, bills, lockPercentage, paySchedule,
+          new Date(startDate), new Date(endDate)
+        );
+      }
       const newPeriod = usePayPeriodStore.getState().createPeriod(startDate, endDate, newLockedAmount);
 
       const templates = useRecurringTaskStore.getState().templates
