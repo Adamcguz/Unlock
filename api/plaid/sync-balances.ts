@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getAuthUser, supabaseAdmin } from '../_lib/supabase';
-import { plaidClient } from '../_lib/plaid';
+import { getAuthUser, supabaseAdmin } from '../_lib/supabase.js';
+import { plaidClient } from '../_lib/plaid.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {

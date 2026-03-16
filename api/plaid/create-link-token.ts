@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getAuthUser } from '../_lib/supabase';
-import { plaidClient } from '../_lib/plaid';
+import { getAuthUser } from '../_lib/supabase.js';
+import { plaidClient } from '../_lib/plaid.js';
 import { CountryCode, Products } from 'plaid';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
