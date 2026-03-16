@@ -1,6 +1,6 @@
 import type { Debt, PaySchedule, RecurringBill } from '../types';
 import { PAY_SCHEDULE_OPTIONS } from './constants';
-import { addDays, getDate, endOfMonth, startOfDay, format } from 'date-fns';
+import { addDays, getDate, endOfMonth, startOfDay } from 'date-fns';
 
 export interface DebtPaydownItem {
   debt: Debt;

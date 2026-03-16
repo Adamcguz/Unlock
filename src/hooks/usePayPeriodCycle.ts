@@ -6,7 +6,7 @@ import { useUserStore } from '../store/useUserStore';
 import { useRecurringTaskStore } from '../store/useRecurringTaskStore';
 import { useProjectStore } from '../store/useProjectStore';
 import { useDebtStore } from '../store/useDebtStore';
-import { startOfDay, parseISO, addDays } from 'date-fns';
+import { startOfDay, parseISO } from 'date-fns';
 import { isPeriodExpired, getNextPeriodDates, getNextPeriodStartDate, isNewDay, isNewWeek, isNewMonth } from '../lib/dateUtils';
 import { calculateBillsInPeriod, calculateLockedAmountFromBalance } from '../lib/calculations';
 
