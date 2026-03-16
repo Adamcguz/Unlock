@@ -19,7 +19,7 @@ import type { Debt, DebtType } from '../../types';
 export function PlannerPage() {
   const { debts, accountBalance, transactions, addDebt, updateDebt, removeDebt, setAccountBalance } = useDebtStore();
   const profile = useUserStore((s) => s.profile);
-  const { isConnected: plaidConnected, lastSyncedAt, transactions: plaidTransactions } = usePlaidStore();
+  const { isConnected: plaidConnected, lastSyncedAt, transactions: plaidTransactions, csvImported } = usePlaidStore();
 
   const [showBalanceModal, setShowBalanceModal] = useState(false);
   const [balanceInput, setBalanceInput] = useState('');
@@ -96,7 +96,13 @@ export function PlannerPage() {
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-text-muted font-medium">Account Balance</span>
                   {plaidConnected && (
-                    <span className="text-[10px] px-1.5 py-0.5 bg-green-500/10 text-green-500 rounded-full">Live</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                      csvImported
+                        ? 'bg-blue-500/10 text-blue-500'
+                        : 'bg-green-500/10 text-green-500'
+                    }`}>
+                      {csvImported ? 'CSV' : 'Live'}
+                    </span>
                   )}
                 </div>
                 <CurrencyDisplay amount={accountBalance} size="lg" className="text-primary" />
@@ -146,7 +152,13 @@ export function PlannerPage() {
           <Card>
             <h3 className="text-sm font-medium text-text-secondary mb-2">
               Recent Transactions
-              <span className="ml-2 text-[10px] px-1.5 py-0.5 bg-green-500/10 text-green-500 rounded-full align-middle">Live</span>
+              <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded-full align-middle ${
+                csvImported
+                  ? 'bg-blue-500/10 text-blue-500'
+                  : 'bg-green-500/10 text-green-500'
+              }`}>
+                {csvImported ? 'CSV' : 'Live'}
+              </span>
             </h3>
             <div className="flex flex-col gap-1.5">
               {plaidTransactions.slice(0, 8).map((tx) => (

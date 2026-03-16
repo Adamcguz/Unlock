@@ -14,6 +14,7 @@ export function PlaidInsights() {
     detectedIncome,
     billsImported,
     incomeImported,
+    csvImported,
     setBillsImported,
     setIncomeImported,
   } = usePlaidStore();
@@ -61,7 +62,7 @@ export function PlaidInsights() {
         <h2 className="font-semibold">Smart Insights</h2>
       </div>
       <p className="text-xs text-text-muted mb-4">
-        We analyzed your transactions and detected recurring patterns.
+        We analyzed your {csvImported ? 'imported CSV' : 'bank'} transactions and detected recurring patterns.
       </p>
 
       {/* Detected Income */}

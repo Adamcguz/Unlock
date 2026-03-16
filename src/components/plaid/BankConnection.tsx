@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Landmark, RefreshCw, Unlink, Mail, Loader2, CheckCircle2 } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { PlaidLinkButton } from './PlaidLinkButton';
+import { CsvImport } from './CsvImport';
 import { useAuthStore } from '../../store/useAuthStore';
 import { usePlaidStore } from '../../store/usePlaidStore';
 import { disconnectPlaid, syncBalances, syncTransactions } from '../../lib/api';
@@ -10,13 +11,13 @@ import { formatDistanceToNow } from 'date-fns';
 
 export function BankConnection() {
   const { user, signInWithEmail, signOut } = useAuthStore();
-  const { isConnected, institutionName, itemId, lastSyncedAt, isSyncing, accounts, disconnect: clearPlaid } = usePlaidStore();
+  const { isConnected, institutionName, itemId, lastSyncedAt, isSyncing, accounts, csvImported, disconnect: clearPlaid } = usePlaidStore();
   const [email, setEmail] = useState('');
   const [emailSent, setEmailSent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // If Supabase isn't configured, show setup message
+  // If Supabase isn't configured, show CSV import as alternative
   if (!supabase) {
     return (
       <Card>
@@ -24,9 +25,10 @@ export function BankConnection() {
           <Landmark className="w-5 h-5 text-accent" />
           <h2 className="font-semibold">Bank Connection</h2>
         </div>
-        <p className="text-sm text-text-muted">
-          Bank connection requires Supabase and Plaid configuration. Add your API keys to the environment variables to enable this feature.
+        <p className="text-sm text-text-muted mb-4">
+          Import transactions from your bank by uploading a CSV file.
         </p>
+        <CsvImport />
       </Card>
     );
   }
@@ -84,6 +86,27 @@ export function BankConnection() {
             {error && <p className="text-sm text-red-500">{error}</p>}
           </div>
         )}
+
+        <div className="flex items-center gap-3 my-4">
+          <div className="flex-1 border-t border-border" />
+          <span className="text-xs text-text-muted">or</span>
+          <div className="flex-1 border-t border-border" />
+        </div>
+
+        <CsvImport />
+      </Card>
+    );
+  }
+
+  // CSV imported (not via Plaid)
+  if (csvImported && isConnected) {
+    return (
+      <Card>
+        <div className="flex items-center gap-2 mb-3">
+          <Landmark className="w-5 h-5 text-accent" />
+          <h2 className="font-semibold">Bank Connection</h2>
+        </div>
+        <CsvImport />
       </Card>
     );
   }
@@ -108,6 +131,14 @@ export function BankConnection() {
           Connect your bank to automatically sync your balance and transactions. Your credentials are handled securely by Plaid.
         </p>
         <PlaidLinkButton />
+
+        <div className="flex items-center gap-3 my-4">
+          <div className="flex-1 border-t border-border" />
+          <span className="text-xs text-text-muted">or</span>
+          <div className="flex-1 border-t border-border" />
+        </div>
+
+        <CsvImport />
       </Card>
     );
   }

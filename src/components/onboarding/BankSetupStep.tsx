@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { ArrowRight, ArrowLeft, Landmark, CheckCircle2, Loader2, Receipt, DollarSign } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { PlaidLinkButton } from '../plaid/PlaidLinkButton';
+import { CsvImport } from '../plaid/CsvImport';
 import { useAuthStore } from '../../store/useAuthStore';
 import { usePlaidStore } from '../../store/usePlaidStore';
 import { supabase } from '../../lib/supabase';
@@ -63,22 +64,23 @@ export function BankSetupStep({ onNext, onBack, onBankDataReady, generateId }: B
     }
   };
 
-  // Not configured
+  // Not configured — offer CSV import
   if (!supabase) {
     return (
       <div className="flex-1 flex flex-col">
         <div className="flex-1 flex flex-col justify-center gap-6">
           <div>
-            <h2 className="text-2xl font-bold mb-2">Connect Your Bank</h2>
+            <h2 className="text-2xl font-bold mb-2">Import Your Transactions</h2>
             <p className="text-text-secondary">
-              Bank connection isn't configured yet. You can set it up later in Settings.
+              Upload a CSV from your bank to automatically detect your income and bills, or skip and enter manually.
             </p>
           </div>
+          <CsvImport />
         </div>
         <div className="flex gap-3 pt-6">
           <Button variant="ghost" onClick={onBack} icon={<ArrowLeft size={16} />}>Back</Button>
-          <Button onClick={onNext} className="flex-1" icon={<ArrowRight size={16} />}>
-            Set Up Manually
+          <Button variant="secondary" onClick={onNext} className="flex-1" icon={<ArrowRight size={16} />}>
+            Skip — Set Up Manually
           </Button>
         </div>
       </div>
@@ -208,6 +210,14 @@ export function BankSetupStep({ onNext, onBack, onBankDataReady, generateId }: B
           // Signed in, show Plaid Link
           <PlaidLinkButton />
         )}
+
+        <div className="flex items-center gap-3 my-2">
+          <div className="flex-1 border-t border-border" />
+          <span className="text-xs text-text-muted">or upload a CSV</span>
+          <div className="flex-1 border-t border-border" />
+        </div>
+
+        <CsvImport />
       </div>
       <div className="flex gap-3 pt-6">
         <Button variant="ghost" onClick={onBack} icon={<ArrowLeft size={16} />}>Back</Button>
