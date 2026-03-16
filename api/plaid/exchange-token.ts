@@ -48,6 +48,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     if (dbError) {
+      console.error('Supabase insert error:', JSON.stringify(dbError));
       throw new Error(`Database error: ${dbError.message}`);
     }
 
@@ -67,6 +68,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       accounts,
     });
   } catch (error: unknown) {
+    console.error('Exchange token error:', error);
     const message = error instanceof Error ? error.message : 'Internal server error';
     const status = message.includes('authorization') || message.includes('token') ? 401 : 500;
     return res.status(status).json({ error: message });
