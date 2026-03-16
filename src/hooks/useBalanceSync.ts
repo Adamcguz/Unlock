@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useDebtStore } from '../store/useDebtStore';
 import { useUserStore } from '../store/useUserStore';
 import { usePayPeriodStore } from '../store/usePayPeriodStore';
+import { usePlaidStore } from '../store/usePlaidStore';
 import { addDays, startOfDay, format, isBefore, getDate, endOfMonth } from 'date-fns';
 import { PAY_SCHEDULE_OPTIONS } from '../lib/constants';
 import { getNextPayDateAfter } from '../lib/dateUtils';
@@ -15,6 +16,9 @@ import { calculateBillsInPeriod, calculateLockedAmountFromBalance } from '../lib
 export function useBalanceSync() {
   useEffect(() => {
     function sync() {
+      // Skip manual balance simulation when Plaid is connected (Plaid handles real data)
+      if (usePlaidStore.getState().isConnected) return;
+
       const { lastProcessedDate, accountBalance, deductFromBalance, creditToBalance, setLastProcessedDate } =
         useDebtStore.getState();
       const profile = useUserStore.getState().profile;

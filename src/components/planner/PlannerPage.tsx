@@ -8,16 +8,18 @@ import { Modal } from '../ui/Modal';
 import { Input } from '../ui/Input';
 import { useDebtStore } from '../../store/useDebtStore';
 import { useUserStore } from '../../store/useUserStore';
+import { usePlaidStore } from '../../store/usePlaidStore';
 import { DebtCard } from './DebtCard';
 import { DebtFormModal } from './DebtFormModal';
 import { PaydownPlan } from './PaydownPlan';
 import { getUpcomingEvents } from '../../lib/debtCalculations';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import type { Debt, DebtType } from '../../types';
 
 export function PlannerPage() {
   const { debts, accountBalance, transactions, addDebt, updateDebt, removeDebt, setAccountBalance } = useDebtStore();
   const profile = useUserStore((s) => s.profile);
+  const { isConnected: plaidConnected, lastSyncedAt, transactions: plaidTransactions } = usePlaidStore();
 
   const [showBalanceModal, setShowBalanceModal] = useState(false);
   const [balanceInput, setBalanceInput] = useState('');
@@ -86,16 +88,26 @@ export function PlannerPage() {
     <PageContainer>
       <div className="flex flex-col gap-4">
         {/* Account Balance */}
-        <Card onClick={handleOpenBalanceModal}>
+        <Card onClick={plaidConnected ? undefined : handleOpenBalanceModal}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Wallet size={18} className="text-primary" />
               <div>
-                <span className="text-xs text-text-muted font-medium">Account Balance</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-text-muted font-medium">Account Balance</span>
+                  {plaidConnected && (
+                    <span className="text-[10px] px-1.5 py-0.5 bg-green-500/10 text-green-500 rounded-full">Live</span>
+                  )}
+                </div>
                 <CurrencyDisplay amount={accountBalance} size="lg" className="text-primary" />
+                {plaidConnected && lastSyncedAt && (
+                  <span className="text-[10px] text-text-muted">
+                    Synced {formatDistanceToNow(new Date(lastSyncedAt), { addSuffix: true })}
+                  </span>
+                )}
               </div>
             </div>
-            <Pencil size={14} className="text-text-muted" />
+            {!plaidConnected && <Pencil size={14} className="text-text-muted" />}
           </div>
         </Card>
 
@@ -130,7 +142,36 @@ export function PlannerPage() {
         )}
 
         {/* Recent Activity */}
-        {recentTransactions.length > 0 && (
+        {plaidConnected && plaidTransactions.length > 0 ? (
+          <Card>
+            <h3 className="text-sm font-medium text-text-secondary mb-2">
+              Recent Transactions
+              <span className="ml-2 text-[10px] px-1.5 py-0.5 bg-green-500/10 text-green-500 rounded-full align-middle">Live</span>
+            </h3>
+            <div className="flex flex-col gap-1.5">
+              {plaidTransactions.slice(0, 8).map((tx) => (
+                <div key={tx.transactionId} className="flex items-center justify-between text-sm py-1">
+                  <div className="flex items-center gap-2">
+                    {tx.amount > 0 ? (
+                      <ArrowUpCircle size={14} className="text-danger shrink-0" />
+                    ) : (
+                      <ArrowDownCircle size={14} className="text-primary shrink-0" />
+                    )}
+                    <span className="text-text-primary truncate max-w-[160px]">
+                      {tx.merchantName || tx.name}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={tx.amount > 0 ? 'text-danger text-sm font-medium' : 'text-primary text-sm font-medium'}>
+                      {tx.amount > 0 ? '-' : '+'}${Math.abs(tx.amount).toFixed(2)}
+                    </span>
+                    <span className="text-xs text-text-muted">{format(new Date(tx.date), 'MMM d')}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        ) : recentTransactions.length > 0 ? (
           <Card>
             <h3 className="text-sm font-medium text-text-secondary mb-2">Recent Activity</h3>
             <div className="flex flex-col gap-1.5">
@@ -150,7 +191,7 @@ export function PlannerPage() {
               ))}
             </div>
           </Card>
-        )}
+        ) : null}
 
         {/* Debts */}
         <div className="flex items-center justify-between">

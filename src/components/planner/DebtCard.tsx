@@ -27,7 +27,12 @@ export function DebtCard({ debt, onEdit, onDelete }: DebtCardProps) {
         <div className="flex items-center gap-2 min-w-0">
           <Icon size={18} className="text-text-secondary shrink-0" />
           <div className="min-w-0">
-            <h3 className="font-medium text-text-primary truncate">{debt.name}</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-medium text-text-primary truncate">{debt.name}</h3>
+              {debt.plaidAccountId && (
+                <span className="text-[10px] px-1.5 py-0.5 bg-green-500/10 text-green-500 rounded-full shrink-0">Live</span>
+              )}
+            </div>
             <Badge className={config.color}>{config.label}</Badge>
           </div>
         </div>
@@ -35,9 +40,11 @@ export function DebtCard({ debt, onEdit, onDelete }: DebtCardProps) {
           <button onClick={onEdit} className="p-1.5 text-text-muted hover:text-text-primary cursor-pointer">
             <Pencil size={14} />
           </button>
-          <button onClick={onDelete} className="p-1.5 text-text-muted hover:text-danger cursor-pointer">
-            <Trash2 size={14} />
-          </button>
+          {!debt.plaidAccountId && (
+            <button onClick={onDelete} className="p-1.5 text-text-muted hover:text-danger cursor-pointer">
+              <Trash2 size={14} />
+            </button>
+          )}
         </div>
       </div>
       <div className="grid grid-cols-3 gap-3 mt-3">

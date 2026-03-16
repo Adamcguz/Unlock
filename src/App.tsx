@@ -1,9 +1,12 @@
 import { lazy, Suspense, Component, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
 import { AppShell } from './components/layout/AppShell';
+import { useEffect } from 'react';
 import { useUserStore } from './store/useUserStore';
 import { usePayPeriodCycle } from './hooks/usePayPeriodCycle';
 import { useBalanceSync } from './hooks/useBalanceSync';
+import { usePlaidSync } from './hooks/usePlaidSync';
+import { useAuthStore } from './store/useAuthStore';
 import { useHydration } from './hooks/useHydration';
 import { checkAndMigrate } from './lib/storage';
 
@@ -59,8 +62,13 @@ function AppRoutes() {
   const profile = useUserStore((s) => s.profile);
   const onboardingCompleted = profile?.onboardingCompleted ?? false;
 
+  useEffect(() => {
+    useAuthStore.getState().initialize();
+  }, []);
+
   usePayPeriodCycle();
   useBalanceSync();
+  usePlaidSync();
 
   if (!hydrated) {
     return <LoadingScreen />;

@@ -8,4 +8,6 @@ export interface Debt {
   minimumPayment: number;
   apr: number;
   createdAt: string;
+  /** Plaid account ID — if set, balance auto-syncs from Plaid */
+  plaidAccountId?: string;
 }

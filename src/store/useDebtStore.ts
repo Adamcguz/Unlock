@@ -25,6 +25,7 @@ interface DebtState {
     balance: number;
     minimumPayment: number;
     apr: number;
+    plaidAccountId?: string;
   }) => Debt;
   updateDebt: (debtId: string, updates: Partial<Omit<Debt, 'id' | 'createdAt'>>) => void;
   removeDebt: (debtId: string) => void;
