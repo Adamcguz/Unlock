@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { Upload, FileText, Loader2, AlertCircle, CheckCircle2, Trash2 } from 'lucide-react';
 import { usePlaidStore } from '../../store/usePlaidStore';
+import { useDebtStore } from '../../store/useDebtStore';
 import { parseCSVFile } from '../../lib/csvParser';
 import type { PlaidTransaction } from '../../types/plaid';
 import { format } from 'date-fns';
@@ -10,6 +11,7 @@ interface PreviewData {
   bankName: string;
   dateRange: { start: string; end: string };
   fileName: string;
+  latestBalance: number | null;
 }
 
 export function CsvImport() {
@@ -46,6 +48,7 @@ export function CsvImport() {
         bankName: result.bankName,
         dateRange: result.dateRange,
         fileName: file.name,
+        latestBalance: result.latestBalance,
       });
       setIsParsing(false);
     };
@@ -59,6 +62,10 @@ export function CsvImport() {
   const handleImport = () => {
     if (!preview) return;
     setCsvData(preview.transactions, preview.fileName);
+    // Set account balance from CSV if available
+    if (preview.latestBalance !== null) {
+      useDebtStore.getState().setAccountBalance(preview.latestBalance);
+    }
     setPreview(null);
   };
 
@@ -148,6 +155,12 @@ export function CsvImport() {
               {format(new Date(preview.dateRange.start), 'MMM d')} — {format(new Date(preview.dateRange.end), 'MMM d, yyyy')}
             </span>
           </div>
+          {preview.latestBalance !== null && (
+            <div className="flex justify-between text-sm">
+              <span className="text-text-muted">Account Balance</span>
+              <span className="font-medium text-primary">${preview.latestBalance.toFixed(2)}</span>
+            </div>
+          )}
         </div>
 
         {/* Sample transactions */}
@@ -212,7 +225,7 @@ export function CsvImport() {
           Download transactions from your bank's website and upload the CSV file here
         </p>
         <p className="text-[10px] text-text-muted">
-          Supports Chase, BofA, Capital One, Citi & more
+          Supports Truist, Chase, BofA, Capital One, Citi & more
         </p>
       </div>
 

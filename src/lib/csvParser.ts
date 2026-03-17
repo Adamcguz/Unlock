@@ -6,14 +6,35 @@ interface BankCSVFormat {
   name: string;
   dateColumn: number;
   descriptionColumn: number;
+  merchantNameColumn?: number; // optional clean merchant name column
   amountColumn?: number; // single amount column
   debitColumn?: number; // separate debit column
   creditColumn?: number; // separate credit column
+  balanceColumn?: number; // optional balance column
   negativeIsDebit: boolean; // true = negative values are debits (money out)
+  parenthesesAreDebits: boolean; // true = ($xx) means debit
   skipRows: number; // header rows to skip
 }
 
 const KNOWN_FORMATS: { detect: (headers: string[]) => boolean; format: BankCSVFormat }[] = [
+  {
+    // Truist: Posted Date, Transaction Date, Transaction Type, Check/Serial #, Full description, Merchant name, Category name, Sub-category name, Amount, Daily Posted Balance
+    detect: (h) =>
+      h.some((c) => c.toLowerCase().includes('posted date')) &&
+      h.some((c) => c.toLowerCase().includes('merchant name')) &&
+      h.some((c) => c.toLowerCase().includes('daily posted balance')),
+    format: {
+      name: 'Truist',
+      dateColumn: 1, // Transaction Date
+      descriptionColumn: 4, // Full description
+      merchantNameColumn: 5, // Merchant name (clean!)
+      amountColumn: 8, // Amount
+      balanceColumn: 9, // Daily Posted Balance
+      negativeIsDebit: false, // Truist uses ($xx) for debits, not negative sign
+      parenthesesAreDebits: true,
+      skipRows: 0,
+    },
+  },
   {
     // Chase: Transaction Date, Post Date, Description, Category, Type, Amount
     detect: (h) =>
@@ -26,6 +47,7 @@ const KNOWN_FORMATS: { detect: (headers: string[]) => boolean; format: BankCSVFo
       descriptionColumn: 2,
       amountColumn: 5,
       negativeIsDebit: true,
+      parenthesesAreDebits: false,
       skipRows: 0,
     },
   },
@@ -41,6 +63,7 @@ const KNOWN_FORMATS: { detect: (headers: string[]) => boolean; format: BankCSVFo
       descriptionColumn: 1,
       amountColumn: 2,
       negativeIsDebit: true,
+      parenthesesAreDebits: false,
       skipRows: 0,
     },
   },
@@ -57,6 +80,7 @@ const KNOWN_FORMATS: { detect: (headers: string[]) => boolean; format: BankCSVFo
       debitColumn: 5,
       creditColumn: 6,
       negativeIsDebit: false,
+      parenthesesAreDebits: false,
       skipRows: 0,
     },
   },
@@ -73,6 +97,7 @@ const KNOWN_FORMATS: { detect: (headers: string[]) => boolean; format: BankCSVFo
       debitColumn: 3,
       creditColumn: 4,
       negativeIsDebit: false,
+      parenthesesAreDebits: false,
       skipRows: 0,
     },
   },
@@ -148,11 +173,13 @@ export function detectBankFormat(headers: string[], rows: string[][]): BankCSVFo
   let amountCol = -1;
   let debitCol = -1;
   let creditCol = -1;
+  let merchantCol = -1;
 
   normalized.forEach((h, i) => {
     const lower = h.toLowerCase();
     if (dateCol === -1 && (lower.includes('date') || lower === 'posted')) dateCol = i;
     if (descCol === -1 && (lower.includes('description') || lower.includes('memo') || lower.includes('payee') || lower === 'name')) descCol = i;
+    if (merchantCol === -1 && lower.includes('merchant')) merchantCol = i;
     if (lower === 'debit' || lower === 'debit amount') debitCol = i;
     if (lower === 'credit' || lower === 'credit amount') creditCol = i;
     if (amountCol === -1 && (lower === 'amount' || lower === 'transaction amount')) amountCol = i;
@@ -162,6 +189,17 @@ export function detectBankFormat(headers: string[], rows: string[][]): BankCSVFo
   if (descCol === -1) descCol = Math.min(1, headers.length - 1);
   if (dateCol === -1) dateCol = 0;
 
+  // Check if amounts use parentheses by looking at data
+  let usesParentheses = false;
+  if (rows.length > 0 && amountCol !== -1) {
+    for (const row of rows.slice(0, 5)) {
+      if (row[amountCol] && row[amountCol].includes('(')) {
+        usesParentheses = true;
+        break;
+      }
+    }
+  }
+
   // Determine if there's a single amount or split debit/credit
   const hasSplitColumns = debitCol !== -1 && creditCol !== -1;
 
@@ -170,9 +208,11 @@ export function detectBankFormat(headers: string[], rows: string[][]): BankCSVFo
       name: 'Auto-detected (split debit/credit)',
       dateColumn: dateCol,
       descriptionColumn: descCol,
+      merchantNameColumn: merchantCol !== -1 ? merchantCol : undefined,
       debitColumn: debitCol,
       creditColumn: creditCol,
       negativeIsDebit: false,
+      parenthesesAreDebits: false,
       skipRows: 0,
     };
   }
@@ -182,7 +222,7 @@ export function detectBankFormat(headers: string[], rows: string[][]): BankCSVFo
     if (rows.length > 0) {
       for (let i = 0; i < rows[0].length; i++) {
         if (i !== dateCol && i !== descCol) {
-          const val = rows[0][i].replace(/[$,]/g, '');
+          const val = rows[0][i].replace(/[$,()]/g, '');
           if (!isNaN(parseFloat(val))) {
             amountCol = i;
             break;
@@ -197,8 +237,10 @@ export function detectBankFormat(headers: string[], rows: string[][]): BankCSVFo
     name: 'Auto-detected',
     dateColumn: dateCol,
     descriptionColumn: descCol,
+    merchantNameColumn: merchantCol !== -1 ? merchantCol : undefined,
     amountColumn: amountCol,
-    negativeIsDebit: true, // most common convention
+    negativeIsDebit: !usesParentheses, // if uses parens, don't also negate
+    parenthesesAreDebits: usesParentheses,
     skipRows: 0,
   };
 }
@@ -247,7 +289,7 @@ export function cleanMerchantName(raw: string): string {
 
   // Remove common prefixes
   const prefixes = [
-    /^(POS|ACH|CHECKCARD|CHECK CARD|DEBIT CARD|PURCHASE|RECURRING|AUTOPAY|PAYMENT TO|DIRECT DEBIT|PREAUTHORIZED|PRE-AUTHORIZED|BILL PAY|ONLINE PMT|ONLINE PAYMENT|SQ \*|TST\*|SQUARE \*|PAYPAL \*|VENMO|ZELLE)\s*/i,
+    /^(POS|ACH|CHECKCARD|CHECK CARD|DEBIT CARD|PURCHASE|RECURRING|AUTOPAY|PAYMENT TO|DIRECT DEBIT|PREAUTHORIZED|PRE-AUTHORIZED|BILL PAY|ONLINE PMT|ONLINE PAYMENT|SQ \*|TST\*|TST\* |SQUARE \*|PAYPAL \*|VENMO|ZELLE|SP |SPO\*)\s*/i,
     /^\d{4}\s+/,  // leading 4-digit number (date codes)
     /^\d{2}\/\d{2}\s+/, // leading MM/DD
   ];
@@ -260,6 +302,7 @@ export function cleanMerchantName(raw: string): string {
   cleaned = cleaned.replace(/\s+\d{3}[-.]?\d{3}[-.]?\d{4}$/, ''); // phone numbers
   cleaned = cleaned.replace(/\s+#?\d{6,}$/, ''); // long reference numbers
   cleaned = cleaned.replace(/\s+[A-Z]{2}\s*\d{5}(-\d{4})?$/, ''); // state + zip
+  cleaned = cleaned.replace(/\s+\d{2}-\d{2}.*$/, ''); // date codes like 01-01 and everything after
   cleaned = cleaned.replace(/\s{2,}.*$/, ''); // everything after double space (often location info)
 
   // Capitalize nicely
@@ -273,10 +316,13 @@ export function cleanMerchantName(raw: string): string {
 
 // ── Convert to PlaidTransaction ────────────────────────────────
 
-function parseAmount(raw: string): number | null {
-  const cleaned = raw.replace(/[$,\s"]/g, '').replace(/\((.+)\)/, '-$1');
+function parseAmount(raw: string): { value: number; hasParentheses: boolean } | null {
+  const trimmed = raw.trim();
+  const hasParens = trimmed.includes('(') && trimmed.includes(')');
+  const cleaned = trimmed.replace(/[$,\s"]/g, '').replace(/\((.+)\)/, '$1');
   const val = parseFloat(cleaned);
-  return isNaN(val) ? null : val;
+  if (isNaN(val)) return null;
+  return { value: val, hasParentheses: hasParens };
 }
 
 /**
@@ -299,8 +345,14 @@ export function csvToPlaidTransactions(
     const date = parseDate(dateRaw);
     if (!date) continue;
 
-    // Parse description
+    // Parse description — prefer merchant name column if available
     const description = row[format.descriptionColumn] || 'Unknown';
+    let merchantName: string;
+    if (format.merchantNameColumn !== undefined && row[format.merchantNameColumn]) {
+      merchantName = row[format.merchantNameColumn];
+    } else {
+      merchantName = cleanMerchantName(description);
+    }
 
     // Parse amount
     let amount: number;
@@ -310,30 +362,33 @@ export function csvToPlaidTransactions(
       const debit = parseAmount(row[format.debitColumn] || '');
       const credit = parseAmount(row[format.creditColumn] || '');
 
-      if (debit !== null && debit !== 0) {
-        amount = Math.abs(debit); // positive = money out (Plaid convention)
-      } else if (credit !== null && credit !== 0) {
-        amount = -Math.abs(credit); // negative = money in (Plaid convention)
+      if (debit !== null && debit.value !== 0) {
+        amount = Math.abs(debit.value); // positive = money out (Plaid convention)
+      } else if (credit !== null && credit.value !== 0) {
+        amount = -Math.abs(credit.value); // negative = money in (Plaid convention)
       } else {
         continue; // no amount, skip
       }
     } else if (format.amountColumn !== undefined) {
-      const rawAmount = parseAmount(row[format.amountColumn] || '');
-      if (rawAmount === null) continue;
+      const parsed = parseAmount(row[format.amountColumn] || '');
+      if (parsed === null) continue;
 
-      if (format.negativeIsDebit) {
+      if (format.parenthesesAreDebits && parsed.hasParentheses) {
+        // Parentheses mean debit (money out) → positive in Plaid convention
+        amount = Math.abs(parsed.value);
+      } else if (format.parenthesesAreDebits && !parsed.hasParentheses) {
+        // No parentheses mean credit (money in) → negative in Plaid convention
+        amount = -Math.abs(parsed.value);
+      } else if (format.negativeIsDebit) {
         // Bank uses: negative = debit (money out), positive = credit (money in)
         // Plaid uses: positive = debit (money out), negative = credit (money in)
-        amount = -rawAmount;
+        amount = -parsed.value;
       } else {
-        // Bank uses: positive = debit
-        amount = rawAmount;
+        amount = parsed.value;
       }
     } else {
       continue;
     }
-
-    const merchantName = cleanMerchantName(description);
 
     transactions.push({
       transactionId: `csv-${i}-${Date.now()}`,
@@ -360,6 +415,7 @@ export interface CSVParseResult {
   transactions: PlaidTransaction[];
   bankName: string;
   dateRange: { start: string; end: string };
+  latestBalance: number | null;
 }
 
 export interface CSVParseError {
@@ -385,6 +441,16 @@ export function parseCSVFile(raw: string): CSVParseResult | CSVParseError {
       return { success: false, error: 'No transactions could be parsed. Make sure the file is a bank transaction export (CSV format).' };
     }
 
+    // Extract latest balance from balance column if available
+    let latestBalance: number | null = null;
+    if (format.balanceColumn !== undefined && dataRows.length > 0) {
+      // First data row has the most recent balance (Truist sorts newest first)
+      const balanceParsed = parseAmount(dataRows[0][format.balanceColumn] || '');
+      if (balanceParsed !== null) {
+        latestBalance = Math.abs(balanceParsed.value);
+      }
+    }
+
     const dates = transactions.map((t) => t.date).sort();
 
     return {
@@ -395,6 +461,7 @@ export function parseCSVFile(raw: string): CSVParseResult | CSVParseError {
         start: dates[0],
         end: dates[dates.length - 1],
       },
+      latestBalance,
     };
   } catch (err) {
     return {
